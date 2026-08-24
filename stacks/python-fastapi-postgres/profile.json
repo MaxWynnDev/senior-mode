@@ -1,0 +1,45 @@
+{
+  "name": "python-fastapi-postgres",
+  "title": "Python + FastAPI + Postgres (SQLAlchemy, Alembic, uv, Docker)",
+  "summary": "Python 3.12+ API service: FastAPI with Pydantic models at the boundary, SQLAlchemy 2.x (async or sync) over Postgres with Alembic migrations, pytest, ruff for lint and format, pyright (or mypy), uv for packages, a Docker image deployed to Fly.io, Railway, or Render, GitHub Actions CI.",
+  "recommended_for": "a new API or backend service in Python where typed request contracts, a plain container deploy, and a migration graph the team controls by hand matter more than a batteries-included framework",
+  "not_for": "admin-heavy CRUD apps (Django's admin and auth win), data pipelines, notebooks, or teams already committed to Django or Flask",
+  "language": "python",
+  "package_manager": "uv (pip fallback: uv export --format requirements-txt > requirements.txt, then pip install -r requirements.txt)",
+  "commands": {
+    "install": "uv sync --locked",
+    "dev": "uv run uvicorn app.main:app --reload",
+    "typecheck": "uv run pyright",
+    "lint": "uv run ruff check .",
+    "test": "uv run pytest -q",
+    "e2e": "uv run pytest -q -m e2e",
+    "format": "uv run ruff format .",
+    "build": "docker build -t <app>:$(git rev-parse --short HEAD) .",
+    "migrate_generate": "uv run alembic revision --autogenerate -m \"<msg>\"",
+    "migrate_check": "uv run alembic check",
+    "migrate_prod": "<scripts/migrate-prod.sh: verifies target host, prints pending revisions, demands typed confirmation, then alembic upgrade head>",
+    "deploy": "git push origin main (CI builds the image and deploys it on green; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/app/api/**", "**/app/routers/**", "**/src/*/api/**"],
+    "schemas": ["**/app/schemas/**"],
+    "services": ["**/app/services/**", "**/services/**"],
+    "db": ["**/app/db/**", "**/app/models/**", "**/alembic/**", "**/migrations/**"],
+    "scripts": ["**/scripts/**"],
+    "tests": ["**/tests/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "uv run ruff format (post-edit-format.sh detects ruff from pyproject.toml)",
+  "migration_tool": "alembic (revision graph under alembic/versions/; watermark = the alembic_version table; exactly one head at all times)",
+  "date_helpers": "app/core/dates.py (utc_now, today_local_iso, format_date); naive datetimes are the trap, ruff's DTZ rules catch them",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "uv run uvicorn app.main:app --reload (dev server on :8000; /docs lists every route), then drive the changed routes with curl or httpx",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules; delete the core ui.md for an API-only service",
+    "commands": [],
+    "docs": ["WORKFLOW.md"]
+  }
+}

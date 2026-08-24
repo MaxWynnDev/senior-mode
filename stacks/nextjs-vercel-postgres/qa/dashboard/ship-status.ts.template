@@ -1,0 +1,185 @@
+// Read-only aggregator for the /ship orchestration dashboard.
+//
+// The orchestration runs LOCALLY (codex CLI, stage scripts, findings files
+// on the dev machine). A prod-deployed dashboard can only see SHARED
+// services, so this module reads exactly those: GitHub Actions (gating CI,
+// nightly sweep, deploy-hook fires) and the Neon branching API (live stage
+// branches). Everything degrades gracefully when a token is absent rather
+// than throwing, so the dashboard renders partially instead of 500ing.
+//
+// No secrets are ever returned to the client; only derived status.
+
+const GH_API = "https://api.github.com";
+const NEON_API = "https://console.neon.tech/api/v2";
+const STAGE_PREFIX = "stage/";
+
+export interface WorkflowRun {
+  id: number;
+  status: string; // queued | in_progress | completed
+  conclusion: string | null; // success | failure | cancelled | null
+  sha: string;
+  title: string;
+  createdAt: string;
+  url: string;
+}
+
+export interface StageBranch {
+  id: string;
+  name: string;
+  createdAt: string;
+  ageDays: number;
+}
+
+export interface ShipStatus {
+  ci: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  nightly: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  deploys: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  branches: { available: boolean; reason?: string; items: StageBranch[] };
+  dispatchEnabled: boolean; // can the dashboard trigger a sweep?
+}
+
+function ghHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+/** Recent runs of one workflow file. Empty + reason on any failure. */
+async function fetchWorkflowRuns(
+  workflowFile: string,
+  perPage = 8,
+): Promise<{ available: boolean; reason?: string; runs: WorkflowRun[] }> {
+  const repo = process.env.GITHUB_REPO?.trim();
+  const token = process.env.GITHUB_TOKEN?.trim();
+  if (!repo || !token) {
+    return { available: false, reason: "GITHUB_REPO / GITHUB_TOKEN not set", runs: [] };
+  }
+  try {
+    const res = await fetch(
+      `${GH_API}/repos/${repo}/actions/workflows/${workflowFile}/runs?per_page=${perPage}&branch=main`,
+      { headers: ghHeaders(token), cache: "no-store" },
+    );
+    if (!res.ok) {
+      return { available: false, reason: `GitHub API ${res.status}`, runs: [] };
+    }
+    const json = (await res.json()) as { workflow_runs?: unknown[] };
+    const runs: WorkflowRun[] = (json.workflow_runs ?? []).map((r) => {
+      const run = r as Record<string, unknown>;
+      const head = run.head_commit as { message?: string } | null;
+      return {
+        id: Number(run.id),
+        status: String(run.status ?? ""),
+        conclusion: (run.conclusion as string | null) ?? null,
+        sha: String(run.head_sha ?? "").slice(0, 7),
+        title: (head?.message ?? "").split("\n")[0].slice(0, 100),
+        createdAt: String(run.created_at ?? ""),
+        url: String(run.html_url ?? ""),
+      };
+    });
+    return { available: true, runs };
+  } catch (err) {
+    return { available: false, reason: (err as Error).message, runs: [] };
+  }
+}
+
+/** Live stage/* Neon branches. Needs NEON_API_KEY in the runtime env. */
+async function fetchStageBranches(): Promise<ShipStatus["branches"]> {
+  const apiKey = process.env.NEON_API_KEY?.trim();
+  const projectId = process.env.NEON_PROJECT_ID?.trim();
+  if (!projectId) return { available: false, reason: "NEON_PROJECT_ID not set", items: [] };
+  if (!apiKey) {
+    return {
+      available: false,
+      reason: "NEON_API_KEY not set in this environment (add it to enable the branches panel)",
+      items: [],
+    };
+  }
+  try {
+    const res = await fetch(`${NEON_API}/projects/${projectId}/branches`, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return { available: false, reason: `Neon API ${res.status}`, items: [] };
+    const json = (await res.json()) as { branches?: unknown[] };
+    const now = Date.now();
+    const items: StageBranch[] = (json.branches ?? [])
+      .map((b) => b as Record<string, unknown>)
+      .filter((b) => String(b.name ?? "").startsWith(STAGE_PREFIX) && !b.default && !b.protected)
+      .map((b) => {
+        const createdAt = String(b.created_at ?? "");
+        const ageMs = createdAt ? now - new Date(createdAt).getTime() : 0;
+        return {
+          id: String(b.id ?? ""),
+          name: String(b.name ?? ""),
+          createdAt,
+          ageDays: Math.max(0, Math.round(ageMs / 86_400_000)),
+        };
+      });
+    return { available: true, items };
+  } catch (err) {
+    return { available: false, reason: (err as Error).message, items: [] };
+  }
+}
+
+export async function getShipStatus(): Promise<ShipStatus> {
+  const [ci, nightly, deploys, branches] = await Promise.all([
+    fetchWorkflowRuns("ci.yml"),
+    fetchWorkflowRuns("qa-sweep.yml"),
+    fetchWorkflowRuns("deploy-on-ci-green.yml", 5),
+    fetchStageBranches(),
+  ]);
+  return {
+    ci,
+    nightly,
+    deploys,
+    branches,
+    dispatchEnabled: !!(process.env.GITHUB_REPO && process.env.GITHUB_TOKEN),
+  };
+}
+
+/** Trigger the nightly sweep workflow on demand. Needs Actions:write. */
+export async function dispatchNightlySweep(baseUrl?: string): Promise<{ ok: boolean; error?: string }> {
+  const repo = process.env.GITHUB_REPO?.trim();
+  const token = process.env.GITHUB_TOKEN?.trim();
+  if (!repo || !token) return { ok: false, error: "GITHUB_REPO / GITHUB_TOKEN not set" };
+  try {
+    const res = await fetch(`${GH_API}/repos/${repo}/actions/workflows/qa-sweep.yml/dispatches`, {
+      method: "POST",
+      headers: { ...ghHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: "main", inputs: baseUrl ? { base_url: baseUrl } : {} }),
+    });
+    if (res.status === 204) return { ok: true };
+    if (res.status === 403) {
+      return { ok: false, error: "GITHUB_TOKEN lacks 'Actions: write' (it has read for the deploy gate). Grant write to enable triggering." };
+    }
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: `GitHub API ${res.status}: ${body.slice(0, 200)}` };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+/** Delete one stage/* Neon branch. Refuses anything outside the prefix. */
+export async function teardownStageBranch(branchId: string, branchName: string): Promise<{ ok: boolean; error?: string }> {
+  if (!branchName.startsWith(STAGE_PREFIX)) {
+    return { ok: false, error: `refusing: ${branchName} is not a stage/* branch` };
+  }
+  const apiKey = process.env.NEON_API_KEY?.trim();
+  const projectId = process.env.NEON_PROJECT_ID?.trim();
+  if (!apiKey || !projectId) return { ok: false, error: "NEON_API_KEY / NEON_PROJECT_ID not set" };
+  try {
+    const res = await fetch(`${NEON_API}/projects/${projectId}/branches/${branchId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Neon API ${res.status}: ${body.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}

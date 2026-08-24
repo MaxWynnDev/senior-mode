@@ -1,0 +1,46 @@
+{
+  "name": "rails-postgres",
+  "title": "Ruby on Rails + Postgres (Kamal / Fly / Render)",
+  "summary": "Ruby 3.3+ web app: Rails 7.2 or 8, ActiveRecord with timestamped migrations and db/schema.rb (or structure.sql), Postgres, RSpec or minitest, RuboCop for lint and format, Brakeman for static security, Hotwire (Turbo + Stimulus) for UI, Docker image deployed with Kamal 2 (or Fly.io / Render), GitHub Actions CI.",
+  "recommended_for": "a server-rendered product where one team owns the whole app, wants a mature ORM and conventions over a component stack, and prefers running its own containers (or a simple PaaS) over a serverless platform",
+  "not_for": "CLI tools, data pipelines, mobile apps, latency-critical edge rendering, or teams already committed to a JavaScript framework",
+  "language": "ruby",
+  "package_manager": "bundler",
+  "commands": {
+    "install": "bundle install",
+    "dev": "bin/dev (falls back to bin/rails server; see Procfile.dev)",
+    "typecheck": "none by default (Sorbet `bundle exec srb tc` or RBS/Steep optional)",
+    "lint": "bundle exec rubocop",
+    "security_scan": "bundle exec brakeman -q --no-pager",
+    "test": "bundle exec rspec (minitest: bin/rails test)",
+    "e2e": "bundle exec rspec spec/system (minitest: bin/rails test:system)",
+    "format": "bundle exec rubocop -a",
+    "build": "docker build -t <app>:$(git rev-parse HEAD) . (Kamal builds this for you on deploy)",
+    "migrate_generate": "bin/rails generate migration <Name>",
+    "migrate_check": "bin/rails db:migrate:status",
+    "migrate_prod": "<scripts/migrate-prod.sh: verifies DATABASE_URL host, runs db:migrate:status, demands typed confirmation, then db:migrate>",
+    "deploy": "kamal deploy (Fly: fly deploy; Render: git push to the tracked branch; CI-gated in all three, see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["app/controllers/**", "config/routes.rb", "app/views/**/*.jbuilder", "app/serializers/**"],
+    "ui": ["app/views/**", "app/helpers/**", "app/javascript/**", "app/components/**"],
+    "services": ["app/services/**", "app/jobs/**", "app/policies/**", "lib/**"],
+    "db": ["db/**", "app/models/**", "config/database.yml"],
+    "scripts": ["lib/tasks/**", "bin/**", "scripts/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "bundle exec rubocop -a (set SENIOR_MODE_FORMAT_CMD for the post-edit hook)",
+  "migration_tool": "ActiveRecord migrations (db/migrate/<timestamp>_*.rb; applied versions tracked in schema_migrations; watermark = timestamp version; strong_migrations gem for safe DDL)",
+  "date_helpers": "app/helpers/date_helper.rb (<format_date, format_calendar_date>); always Time.current / Date.current, never Time.now / Date.today",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "bin/dev (Puma on :3000, plus asset watchers from Procfile.dev), then drive the changed routes with a system spec (Capybara) or curl against /up and the changed paths",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules (the core ui.md stays; adapt it to ERB + Turbo + Stimulus)",
+    "commands": [],
+    "docs": ["WORKFLOW.md"],
+    "qa_pack": "none in this profile; reuse the core QA-SWEEP template with a Capybara page sweep"
+  }
+}

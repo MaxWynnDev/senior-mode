@@ -1,0 +1,4 @@
+# senior-mode: the hooks are bash scripts and must stay LF on every platform.
+* text=auto eol=lf
+*.sh text eol=lf
+*.gif binary

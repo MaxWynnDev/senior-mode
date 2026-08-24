@@ -1,0 +1,47 @@
+{
+  "name": "go-service",
+  "title": "Go service + Postgres (pgx/sqlc) + containers",
+  "summary": "Go 1.22+ HTTP service: net/http ServeMux or chi, pgx over Postgres with sqlc-generated queries, goose (or atlas) SQL migrations, go test with optional testify, gofmt + golangci-lint, a multi-stage Dockerfile, deployed as an image to Fly.io, Cloud Run, or Kubernetes, GitHub Actions CI.",
+  "recommended_for": "a backend API or worker where one static binary, explicit control over the runtime, and boring inspectable SQL matter more than a paved front-end road",
+  "not_for": "server-rendered web UIs, CLI tools with no service in them, or teams already committed to gin/echo/GORM conventions (README.md says what to adapt)",
+  "language": "go",
+  "package_manager": "go modules",
+  "commands": {
+    "install": "go mod download && go mod verify",
+    "dev": "go run ./cmd/<service>",
+    "typecheck": "go build ./... && go vet ./...",
+    "lint": "test -z \"$(gofmt -l .)\" && golangci-lint run",
+    "test": "go test ./... -race -count=1",
+    "e2e": "go test ./... -race -count=1 -tags integration (DATABASE_URL must point at a throwaway Postgres)",
+    "format": "gofmt -w .",
+    "build": "CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o bin/<service> ./cmd/<service>",
+    "generate": "sqlc generate",
+    "migrate_generate": "goose -dir migrations create <name> sql",
+    "migrate_check": "goose -dir migrations postgres \"$DATABASE_URL\" status",
+    "migrate_prod": "scripts/migrate-prod.sh (confirmation-gated wrapper around goose up; see WORKFLOW.md)",
+    "deploy": "git push origin main (CI builds the image for the green SHA, then fly deploy --image | gcloud run deploy --image | kubectl apply; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/internal/http/**", "**/internal/api/**", "**/internal/handler/**", "**/handlers/**"],
+    "ui": [],
+    "services": ["**/internal/service/**", "**/internal/services/**", "**/internal/domain/**"],
+    "db": ["**/internal/db/**", "**/db/**", "**/migrations/**", "**/queries/**", "sqlc.yaml"],
+    "scripts": ["**/cmd/tools/**", "**/scripts/**"],
+    "generated": ["**/*.sql.go", "**/internal/db/models.go", "**/internal/db/querier.go", "**/internal/db/db.go"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150, "generated": "exempt (sqlc output is never hand-edited)" },
+  "format_cmd": "gofmt -w (post-edit-format.sh detects go.mod); goimports -w if installed",
+  "migration_tool": "goose (plain SQL, -- +goose Up/Down; watermark = goose_db_version table; run goose fix before merge so mainline versions are sequential). atlas is the documented alternative.",
+  "date_helpers": "internal/clock/clock.go (Clock interface with Now() so tests inject time; store UTC, format at the edge)",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "docker compose up -d postgres (or any local Postgres 16), goose up against it, go run ./cmd/<service> (listens on :8080), then curl GET /healthz and the changed routes",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules; delete the core ui.md (this profile has no UI)",
+    "commands": [],
+    "docs": ["WORKFLOW.md"],
+    "qa_pack": "none; post-deploy smoke checks live in cmd/tools/smoke-test"
+  }
+}

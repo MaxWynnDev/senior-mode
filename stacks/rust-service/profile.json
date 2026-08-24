@@ -1,0 +1,48 @@
+{
+  "name": "rust-service",
+  "title": "Rust service: axum + tokio + sqlx + Postgres",
+  "summary": "Rust stable (2021 or 2024 edition) HTTP service: axum on tokio, sqlx with compile-time checked queries and SQL migrations, Postgres, cargo test, rustfmt + clippy, optional cargo-deny/cargo-audit, multi-stage Dockerfile, deployed as an image to Fly.io, Cloud Run, or Kubernetes, GitHub Actions CI.",
+  "recommended_for": "a backend API or worker where latency, memory footprint, and a compiler that checks the SQL matter more than a paved front-end road",
+  "not_for": "server-rendered web apps with heavy UI, teams without Rust experience, or prototypes that will change shape weekly",
+  "language": "rust",
+  "package_manager": "cargo",
+  "commands": {
+    "install": "cargo fetch --locked",
+    "dev": "cargo run",
+    "typecheck": "cargo check --all-targets",
+    "lint": "cargo clippy --all-targets -- -D warnings",
+    "test": "cargo test",
+    "e2e": "cargo test --test '*' (integration tests under tests/; #[sqlx::test] needs DATABASE_URL)",
+    "format": "cargo fmt",
+    "format_check": "cargo fmt --check",
+    "build": "cargo build --release",
+    "query_cache": "cargo sqlx prepare (writes .sqlx/; cargo sqlx prepare --check in CI)",
+    "migrate_generate": "sqlx migrate add <name>",
+    "migrate_run": "sqlx migrate run (dev, CI, staging only)",
+    "migrate_check": "sqlx migrate info",
+    "migrate_prod": "<scripts/migrate-prod.sh> (confirmation-gated wrapper around sqlx migrate run; see WORKFLOW.md)",
+    "deploy": "git push origin main (CI builds the image tagged with the SHA and rolls it out; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/src/routes/**", "**/src/http/**", "**/src/api/**"],
+    "ui": [],
+    "services": ["**/src/services/**", "**/src/domain/**"],
+    "db": ["**/src/db/**", "**/migrations/**", "**/.sqlx/**"],
+    "scripts": ["**/scripts/**", "**/src/bin/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "cargo fmt (rustfmt; rustfmt.toml optional, detected by post-edit-format.sh)",
+  "migration_tool": "sqlx-cli (plain SQL under migrations/, timestamp version prefix; watermark = _sqlx_migrations.version, checksum verified on every run)",
+  "date_helpers": "src/util/time.rs (now_utc, parse_date; chrono or time, UTC at rest, TIMESTAMPTZ in Postgres)",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "cargo run (binds <HOST>:<PORT>, default 0.0.0.0:8080), then drive the changed routes with curl or an integration test under tests/",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules (no ui rule; delete the core ui.md or scope it to nothing)",
+    "commands": [],
+    "docs": ["WORKFLOW.md"],
+    "qa_pack": "none (drive deployed targets with curl or an integration test binary; see WORKFLOW.md)"
+  }
+}

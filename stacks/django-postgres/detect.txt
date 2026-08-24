@@ -1,0 +1,20 @@
+# Signals for the django-postgres profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+#
+# Budget: a real Django repo scores manage.py (12) plus a django
+# dependency (8) = 20 before any layout signal fires. A FastAPI or Flask
+# repo can at most hit settings.py (4) + asgi.py (2) + Dockerfile (1) +
+# fly.toml (2) = 9, under the CANDIDATES line. The dependency regex
+# matches "django" as a whole word, so django-stubs or django-ninja
+# alone do not count as Django.
+file  12  manage.py
+grep   8  pyproject.toml    (^|[^a-z_-])django([^a-z_-]|$)
+grep   8  requirements.txt  (^|[^a-z_-])django([^a-z_-]|$)
+grep   4  pyproject.toml    djangorestframework|django-ninja|django_ninja
+grep   4  requirements.txt  djangorestframework|django-ninja|django_ninja
+glob   4  */settings.py
+glob   4  */settings/base.py
+glob   3  */wsgi.py
+glob   2  */asgi.py
+file   1  Dockerfile
+file   2  fly.toml

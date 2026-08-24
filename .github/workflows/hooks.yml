@@ -1,0 +1,73 @@
+# Runs the hook test harness (scratch git repos: hooks, shims, detector, installer) on every
+# push and pull request, on all three platforms the kit claims to support.
+# The harness needs only bash, git, and mktemp; no network, no secrets.
+#
+# Exit code 0 means every case printed [ok]; the harness exits 1 otherwise,
+# which fails the job.
+name: hooks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "adapters/**"
+      - "stacks/**"
+      - "install.sh"
+      - "starter/**"
+      - ".github/workflows/hooks.yml"
+  pull_request:
+    paths:
+      - "core/**"
+      - "adapters/**"
+      - "stacks/**"
+      - "install.sh"
+      - "starter/**"
+      - ".github/workflows/hooks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    name: hook harness (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash   # Git Bash on windows-latest, matching what the hooks require
+    steps:
+      - uses: actions/checkout@v6
+
+      # The harness commits inside throwaway repos; hosted runners have no
+      # git identity configured.
+      - name: Configure git identity
+        run: |
+          git config --global user.name "senior-mode ci"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+
+      - name: Run hook harness
+        run: bash core/hooks/test-checklist.sh
+
+      - name: Starter hooks smoke test
+        run: |
+          set -euo pipefail
+          # before-hook: must emit UserPromptSubmit context
+          out=$(printf '{"session_id":"ci-smoke","prompt":"hi"}' | bash starter/hooks/senior-check-before.sh)
+          case "$out" in *'"hookEventName": "UserPromptSubmit"'*) echo "[ok] starter before-hook";; *) echo "[FAIL] starter before-hook"; echo "$out"; exit 1;; esac
+          # after-hook: block on first stop, allow (empty) on second, allow when stop_hook_active
+          first=$(printf '{"session_id":"ci-smoke"}' | bash starter/hooks/senior-check-after.sh)
+          second=$(printf '{"session_id":"ci-smoke"}' | bash starter/hooks/senior-check-after.sh)
+          active=$(printf '{"session_id":"ci-smoke","stop_hook_active":true}' | bash starter/hooks/senior-check-after.sh)
+          case "$first" in *'"decision": "block"'*) echo "[ok] starter after-hook blocks once";; *) echo "[FAIL] starter after-hook did not block"; exit 1;; esac
+          [ -z "$second" ] && echo "[ok] starter after-hook allows second stop" || { echo "[FAIL] starter after-hook blocked twice"; exit 1; }
+          [ -z "$active" ] && echo "[ok] starter after-hook honors stop_hook_active" || { echo "[FAIL] starter after-hook ignored stop_hook_active"; exit 1; }
+
+      - name: Starter installer dry run
+        run: HOME="$RUNNER_TEMP/fakehome" bash starter/install.sh --dry-run

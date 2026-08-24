@@ -1,0 +1,20 @@
+# Signals for the node-api-postgres profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+#
+# Tuned so a plain Express / Fastify / Hono / Nest API with Postgres
+# scores 20+ and a Next.js repo stays under 10 in the common case, even
+# though it may share the ORM, vitest, and (rarely) a Dockerfile. Nothing
+# here fires on `next`, app/layout.tsx, or vercel.ts on purpose; the
+# sibling profile owns those.
+grep  15  package.json  "(hono|fastify|express|@nestjs/core)"\s*:
+grep   7  package.json  "(drizzle-orm|@prisma/client|kysely|postgres|pg)"\s*:
+file   4  Dockerfile
+file   4  src/server.ts
+file   4  src/index.ts
+file   4  src/main.ts
+file   4  fly.toml
+file   4  railway.json
+file   4  railway.toml
+file   4  render.yaml
+grep   3  package.json  "start(:prod)?"\s*:\s*"(node|bun|tsx|nest)\s
+grep   1  package.json  "vitest"\s*:

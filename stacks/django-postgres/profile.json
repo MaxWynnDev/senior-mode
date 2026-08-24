@@ -1,0 +1,46 @@
+{
+  "name": "django-postgres",
+  "title": "Django 5 + Postgres + Docker (Fly.io / Railway / Render)",
+  "summary": "Python web app or JSON API: Django 5.x (Django REST Framework or Django Ninja for APIs), Django ORM with per-app migrations, Postgres over psycopg 3, pytest + pytest-django, ruff for lint and format, pyright (or mypy) with django-stubs, uv for dependencies, one Docker image served by gunicorn (uvicorn only for ASGI) on Fly.io, Railway, or Render, GitHub Actions CI with a CI-gated deploy.",
+  "recommended_for": "a data-heavy product where the admin, the ORM, and a mature auth and permissions system are worth more than a JavaScript-first stack, or a Python team that wants one deployable image and a boring rollback",
+  "not_for": "single-page apps with a thin backend, high-fan-out async or streaming workloads (FastAPI or Go), data pipelines, or teams already committed to another framework",
+  "language": "python",
+  "package_manager": "uv",
+  "commands": {
+    "install": "uv sync",
+    "dev": "uv run python manage.py runserver",
+    "typecheck": "uv run pyright",
+    "lint": "uv run ruff check .",
+    "test": "uv run pytest -q",
+    "e2e": "uv run pytest -q -m e2e",
+    "format": "uv run ruff format .",
+    "build": "docker build -t <app>:$(git rev-parse --short HEAD) .",
+    "migrate_generate": "uv run python manage.py makemigrations",
+    "migrate_check": "uv run python manage.py makemigrations --check --dry-run",
+    "migrate_dev": "uv run python manage.py migrate",
+    "migrate_prod": "<scripts/migrate-prod.sh: verifies DATABASE_URL host, runs showmigrations --plan, demands typed confirmation, then migrate>",
+    "deploy": "git push origin main (CI-gated image build and platform deploy; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/views.py", "**/views/**", "**/api/**", "**/viewsets.py", "**/serializers.py", "**/routers.py", "**/urls.py"],
+    "ui": ["**/templates/**", "**/static/**", "**/forms.py"],
+    "services": ["**/services.py", "**/services/**", "**/selectors.py"],
+    "db": ["**/models.py", "**/models/**", "**/migrations/**", "**/managers.py"],
+    "scripts": ["**/scripts/**", "**/management/commands/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "uv run ruff format . (ruff also replaces isort via the I rule set)",
+  "migration_tool": "Django migrations (per-app numbered files resolved as a dependency graph, applied state in the django_migrations table; no timestamp watermark, conflicts surface as multiple leaf nodes)",
+  "date_helpers": "<core/dates.py> (format_date, format_calendar_date, today_local_iso); django.utils.timezone.now() for timestamps, never datetime.now()",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "uv run python manage.py migrate && uv run python manage.py runserver (dev server on :8000), then drive the changed URLs with the Django test client, curl, or Playwright",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules; the core ui.md stays (templates and forms are not stack-specific enough to override)",
+    "commands": [],
+    "docs": ["WORKFLOW.md"],
+    "qa_pack": "none; a deterministic sweep is a pytest -m e2e job (Playwright for Python) against a staging app, written once a staging target exists"
+  }
+}

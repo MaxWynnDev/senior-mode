@@ -1,0 +1,14 @@
+# Signals for the rust-service profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+# A plain Rust library or CLI (Cargo.toml + Cargo.lock + tokio) stays
+# under 20 on purpose; a web framework or sqlx tips it over.
+file  12  Cargo.toml
+file   3  Cargo.lock
+grep   8  Cargo.toml  axum|actix-web
+grep   6  Cargo.toml  sqlx
+grep   3  Cargo.toml  tokio
+glob   5  migrations/*.sql
+file   5  .sqlx
+file   2  Dockerfile
+file   3  rust-toolchain.toml
+file   2  clippy.toml

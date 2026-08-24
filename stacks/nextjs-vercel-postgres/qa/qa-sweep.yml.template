@@ -1,0 +1,58 @@
+# TEMPLATE: copy to .github/workflows/qa-sweep.yml and adjust the marked
+# spots.
+#
+# Nightly QA sweep of PRODUCTION. Runs the deterministic page sweep
+# (pages-smoke spec) against your live site signed in as a low-privilege
+# QA test login. No local server, no database: the target is the live
+# deployment, the data is your synthetic QA sandbox tenant.
+#
+# Schedule at a quiet hour so it never overlaps a rolling release
+# (mid-rollout sweeps produce false-positive hydration errors).
+#
+# Required repo secrets: QA_AGENT_EMAIL, QA_AGENT_PASSWORD,
+# QA_TENANT_ID (whatever your seed script outputs).
+name: QA sweep (nightly)
+
+on:
+  schedule:
+    - cron: "10 7 * * *" # ADJUST to your quiet hour (UTC)
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Target URL (default prod)"
+        required: false
+        default: "https://your-app.example" # ADJUST
+
+jobs:
+  sweep:
+    name: Page sweep vs deployed target
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://your-app.example' }} # ADJUST
+      TEST_USER_EMAIL: ${{ secrets.QA_AGENT_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.QA_AGENT_PASSWORD }}
+      TEST_TENANT_ID: ${{ secrets.QA_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # No `playwright install`: ubuntu-latest ships Google Chrome; select
+      # channel "chrome" in playwright.config when CI is set (the download
+      # path has hung at archive extraction on hosted runners).
+      - name: Sweep deployed pages
+        working-directory: apps/web # ADJUST to your web app dir
+        run: pnpm exec playwright test pages-smoke --project=setup --project=chromium --reporter=line
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-sweep-results
+          path: apps/web/test-results/ # ADJUST
+          retention-days: 7

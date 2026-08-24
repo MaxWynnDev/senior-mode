@@ -1,0 +1,45 @@
+{
+  "name": "node-api-postgres",
+  "title": "Node API (Hono / Fastify / Express 5 / Nest) + Postgres + Docker",
+  "summary": "TypeScript HTTP service: Node 22+ (or Bun), one HTTP framework that is not Next.js, Postgres with Drizzle SQL migrations (or Prisma migrate deploy), vitest unit and integration tests against an ephemeral Postgres, Biome or ESLint + Prettier, a Docker image built in CI and deployed to Fly.io / Railway / Render behind a CI gate.",
+  "recommended_for": "a backend API or service with no browser surface: the API behind a mobile app or a separate frontend, a webhook processor, an internal service, a job runner with an HTTP face",
+  "not_for": "Next.js apps (use nextjs-vercel-postgres), CLI tools, data pipelines without an HTTP surface, serverless-only deployments",
+  "language": "typescript",
+  "package_manager": "pnpm",
+  "commands": {
+    "install": "pnpm install --frozen-lockfile",
+    "dev": "pnpm dev (tsx watch src/server.ts)",
+    "typecheck": "pnpm typecheck (tsc --noEmit)",
+    "lint": "pnpm lint (biome check . or eslint .)",
+    "test": "pnpm test (vitest run)",
+    "e2e": "pnpm test:integration (vitest against the compose Postgres; CI uses a service container)",
+    "format": "pnpm exec biome format --write . || pnpm exec prettier --write .",
+    "build": "pnpm build (tsc, or tsup/esbuild to dist/)",
+    "migrate_generate": "pnpm drizzle-kit generate (Prisma: pnpm prisma migrate dev --create-only)",
+    "migrate_check": "pnpm drizzle-kit check (Prisma: pnpm prisma migrate status)",
+    "migrate_prod": "pnpm db:migrate:prod (confirmation-gated runner: scripts/migrate-prod.ts wraps the Drizzle migrator or `prisma migrate deploy`; never `prisma migrate dev` against prod)",
+    "deploy": "git push origin main (CI builds the image and runs `fly deploy --image` or the platform push; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/src/routes/**", "**/src/api/**", "**/src/controllers/**", "**/src/modules/**/*.controller.ts"],
+    "ui": [],
+    "services": ["**/services/**", "**/src/modules/**/*.service.ts", "**/lib/**"],
+    "db": ["**/db/**", "**/drizzle/**", "**/prisma/**", "**/migrations/**"],
+    "scripts": ["**/scripts/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "auto (biome or prettier, detected by post-edit-format.sh)",
+  "migration_tool": "drizzle-kit (SQL files + meta/_journal.json; watermark = journal `when` vs drizzle.__drizzle_migrations.created_at). Prisma alternative: prisma/migrations + _prisma_migrations checksums; `migrate dev` locally, `migrate deploy` inside the runner.",
+  "date_helpers": "src/lib/date.ts (<formatDate, todayLocalISO>); wire format is ISO 8601 UTC strings, timestamptz at rest",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "pnpm dev (tsx watch on :3000, needs the compose Postgres), poll GET /health until 200, then drive the changed routes with curl or the framework's in-process request helper (Hono app.request, Fastify app.inject, supertest for Express and Nest)",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/services/scripts rules; the core ui.md does not apply to a headless service (delete it)",
+    "commands": [],
+    "docs": ["WORKFLOW.md"],
+    "qa_pack": "none: the integration suite gates and scripts/smoke-test-prod.ts verifies the deployed target"
+  }
+}

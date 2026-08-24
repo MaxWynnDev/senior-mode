@@ -1,0 +1,25 @@
+# Signals for the python-fastapi-postgres profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+#
+# The framework grep carries the weight on purpose: a Django or plain-script
+# repo with a Dockerfile, fly.toml, and uvicorn still stays under 10, while a
+# bare FastAPI repo (fastapi + uvicorn in pyproject, a main.py) reaches 20.
+grep  16  pyproject.toml    fastapi
+grep  14  requirements.txt  ^fastapi
+grep   6  pyproject.toml    sqlalchemy
+grep   4  requirements.txt  ^sqlalchemy
+grep   4  pyproject.toml    alembic
+grep   3  requirements.txt  ^alembic
+grep   2  pyproject.toml    uvicorn
+grep   1  requirements.txt  ^uvicorn
+file   4  alembic.ini
+file   3  alembic/env.py
+file   2  migrations/env.py
+file   2  app/main.py
+file   2  main.py
+glob   2  src/*/main.py
+file   1  Dockerfile
+file   3  fly.toml
+file   1  railway.json
+file   1  railway.toml
+file   1  render.yaml

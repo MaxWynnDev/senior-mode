@@ -1,0 +1,13 @@
+# Signals for the rails-postgres profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+file   5  Gemfile
+grep  12  Gemfile  gem\s+["']rails["']
+file  10  config/application.rb
+file   5  bin/rails
+file   5  config/routes.rb
+glob   4  db/schema.rb
+glob   4  db/structure.sql
+grep   5  Gemfile  gem\s+["']pg["']
+file   4  config/deploy.yml
+file   2  Dockerfile
+grep   2  Gemfile  strong_migrations|rspec-rails|brakeman

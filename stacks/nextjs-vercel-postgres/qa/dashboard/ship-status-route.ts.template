@@ -1,0 +1,54 @@
+import { NextRequest } from "next/server";
+import { getAuthContext, unauthorized, success, badRequest, requireDev } from "@/lib/api-utils";
+import {
+  getShipStatus,
+  dispatchNightlySweep,
+  teardownStageBranch,
+} from "@/lib/ship-status";
+
+/**
+ * GET /api/v1/platform-admin/ship-status: aggregated /ship pipeline state
+ * (gating CI, nightly sweep, deploy-hook fires, live stage branches).
+ * Dev-only, read-only. Degrades gracefully when a token is absent.
+ */
+export async function GET(req: NextRequest) {
+  const ctx = await getAuthContext(req);
+  if (!ctx) return unauthorized();
+  const gate = requireDev(ctx, req);
+  if (gate) return gate;
+
+  const status = await getShipStatus();
+  return success(status);
+}
+
+/**
+ * POST /api/v1/platform-admin/ship-status: pipeline controls.
+ *   { action: "dispatch-sweep", baseUrl? }       trigger the nightly sweep
+ *   { action: "teardown-branch", branchId, name } delete a stage/* branch
+ */
+export async function POST(req: NextRequest) {
+  const ctx = await getAuthContext(req);
+  if (!ctx) return unauthorized();
+  const gate = requireDev(ctx, req);
+  if (gate) return gate;
+
+  let body: { action?: string; baseUrl?: string; branchId?: string; name?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest("Invalid JSON body");
+  }
+
+  if (body.action === "dispatch-sweep") {
+    const r = await dispatchNightlySweep(body.baseUrl);
+    return r.ok ? success({ dispatched: true }) : badRequest(r.error ?? "dispatch failed");
+  }
+
+  if (body.action === "teardown-branch") {
+    if (!body.branchId || !body.name) return badRequest("branchId and name are required");
+    const r = await teardownStageBranch(body.branchId, body.name);
+    return r.ok ? success({ deleted: true }) : badRequest(r.error ?? "teardown failed");
+  }
+
+  return badRequest("Unknown action");
+}

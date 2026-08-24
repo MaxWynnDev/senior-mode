@@ -1,0 +1,45 @@
+{
+  "name": "nextjs-vercel-postgres",
+  "title": "Next.js (App Router) + Postgres + Vercel",
+  "summary": "TypeScript web app: Next.js App Router, Postgres with copy-on-write branching (Neon) and Drizzle SQL migrations, a vetted auth library, Tailwind + shadcn/ui, Vercel Fluid Compute deploys, GitHub Actions CI, Playwright e2e.",
+  "recommended_for": "a new full-stack web app where one-push deploys, staging on demand, and a paved AI road matter more than infrastructure control",
+  "not_for": "CLI tools, data pipelines, mobile apps, or teams already committed to another framework",
+  "language": "typescript",
+  "package_manager": "pnpm",
+  "commands": {
+    "install": "pnpm install --frozen-lockfile",
+    "dev": "pnpm dev",
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test",
+    "e2e": "pnpm exec playwright test",
+    "format": "pnpm exec biome format --write . || pnpm exec prettier --write .",
+    "build": "pnpm build",
+    "migrate_generate": "pnpm drizzle-kit generate",
+    "migrate_check": "pnpm drizzle-kit check",
+    "migrate_prod": "pnpm db:migrate:prod",
+    "deploy": "git push origin main (CI-gated Vercel deploy; see WORKFLOW.md)"
+  },
+  "layout": {
+    "api": ["**/app/api/**", "**/src/app/api/**"],
+    "ui": ["**/components/**", "**/app/**/*.tsx"],
+    "services": ["**/services/**", "**/lib/**"],
+    "db": ["**/db/**", "**/drizzle/**", "**/migrations/**"],
+    "scripts": ["**/scripts/**"]
+  },
+  "loc_budget": { "default": 400, "services": 800, "route_handlers": 150 },
+  "format_cmd": "auto (biome or prettier, detected by post-edit-format.sh)",
+  "migration_tool": "drizzle-kit (SQL files + journal; watermark = journal timestamp)",
+  "date_helpers": "src/lib/date.ts (formatDate, formatCalendarDate, todayLocalISO)",
+  "reviewers": {
+    "keep": ["conventions-sweeper", "tenant-isolation-reviewer", "money-path-reviewer", "migration-reviewer", "prompt-auditor", "app-verifier"],
+    "delete_if": { "prompt-auditor": "no LLM call sites", "money-path-reviewer": "no money", "tenant-isolation-reviewer": "single-tenant" }
+  },
+  "app_verifier_boot": "pnpm dev (Next dev server on :3000), then drive the changed routes with Playwright or curl",
+  "overlay": {
+    "rules": "rules/*.md replace the core api-boundary/data-layer/ui/services/scripts rules",
+    "commands": ["stage", "qa-sweep"],
+    "docs": ["WORKFLOW.md", "QA-SWEEP.md"],
+    "qa_pack": "qa/ (Playwright page sweep, nightly workflow, stage scripts, sandbox seed checklist, dashboard)"
+  }
+}

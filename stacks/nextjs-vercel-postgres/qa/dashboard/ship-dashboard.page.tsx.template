@@ -1,0 +1,288 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { relativeTime } from "@/lib/utils";
+import {
+  Loader2, Shield, RefreshCw, Rocket, GitBranch, Trash2,
+  CheckCircle2, XCircle, Clock, PlayCircle, ExternalLink, FlaskConical,
+} from "lucide-react";
+
+interface WorkflowRun {
+  id: number; status: string; conclusion: string | null;
+  sha: string; title: string; createdAt: string; url: string;
+}
+interface StageBranch { id: string; name: string; createdAt: string; ageDays: number }
+interface ShipStatus {
+  ci: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  nightly: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  deploys: { available: boolean; reason?: string; runs: WorkflowRun[] };
+  branches: { available: boolean; reason?: string; items: StageBranch[] };
+  dispatchEnabled: boolean;
+}
+
+function RunIcon({ run }: { run: WorkflowRun }) {
+  if (run.status !== "completed") {
+    return <PlayCircle className="h-4 w-4 text-blue-500 animate-pulse" />;
+  }
+  if (run.conclusion === "success") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+  if (run.conclusion === "cancelled") return <Clock className="h-4 w-4 text-muted-foreground" />;
+  return <XCircle className="h-4 w-4 text-red-500" />;
+}
+
+function RunList({ runs, empty }: { runs: WorkflowRun[]; empty: string }) {
+  if (runs.length === 0) return <p className="px-4 py-6 text-center text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <div className="divide-y divide-border/50 max-h-[280px] overflow-y-auto">
+      {runs.map((r) => (
+        <a key={r.id} href={r.url} target="_blank" rel="noopener noreferrer"
+           className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 group">
+          <RunIcon run={r} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate">{r.title || "(no message)"}</p>
+            <p className="text-xs text-muted-foreground">
+              <code className="font-mono">{r.sha}</code> &middot;{" "}
+              {r.status === "completed" ? (r.conclusion ?? "done") : r.status} &middot; {relativeTime(r.createdAt)}
+            </p>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function Unconfigured({ reason }: { reason?: string }) {
+  return (
+    <div className="px-4 py-6 text-center">
+      <p className="text-sm text-muted-foreground">Not configured</p>
+      {reason && <p className="text-xs text-muted-foreground/70 mt-1">{reason}</p>}
+    </div>
+  );
+}
+
+export default function ShipDashboardPage() {
+  const router = useRouter();
+  const [status, setStatus] = useState<ShipStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/v1/platform-admin/ship-status", { cache: "no-store" });
+      if (res.status === 403 || res.status === 401) { setDenied(true); return; }
+      const json = await res.json();
+      setStatus(json.data ?? null);
+    } catch {
+      setNote("Failed to load pipeline status.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const dispatchSweep = async () => {
+    setBusy("dispatch"); setNote(null);
+    try {
+      const res = await fetch("/api/v1/platform-admin/ship-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dispatch-sweep" }),
+      });
+      const json = await res.json();
+      setNote(res.ok
+        ? "Nightly sweep triggered. It appears under Nightly QA sweep in ~1 minute."
+        : (json.error?.message ?? "Dispatch failed."));
+      if (res.ok) setTimeout(load, 4000);
+    } finally { setBusy(null); }
+  };
+
+  const teardown = async (b: StageBranch) => {
+    setBusy(b.id); setNote(null);
+    try {
+      const res = await fetch("/api/v1/platform-admin/ship-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "teardown-branch", branchId: b.id, name: b.name }),
+      });
+      const json = await res.json();
+      if (res.ok) { setNote(`Deleted ${b.name}.`); load(); }
+      else setNote(json.error?.message ?? "Teardown failed.");
+    } finally { setBusy(null); }
+  };
+
+  // Redirect non-dev users; the API also 403s.
+  useEffect(() => {
+    fetch("/api/v1/tenants") // ADJUST: your tenant list endpoint
+      .then((r) => r.json())
+      .then((d) => { if (d.userRole !== "dev") router.replace("/home"); })
+      .catch(() => {});
+  }, [router]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+  if (denied) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Shield className="h-10 w-10 text-muted-foreground" />
+        <p className="text-lg font-medium">Access Denied</p>
+        <p className="text-sm text-muted-foreground">This page is restricted to platform developers.</p>
+      </div>
+    );
+  }
+
+  const latestCi = status?.ci.runs[0];
+  const latestDeploy = status?.deploys.runs[0];
+  const latestNightly = status?.nightly.runs[0];
+  const branchCount = status?.branches.items.length ?? 0;
+
+  return (
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Rocket className="h-6 w-6 text-primary" />
+            Ship Pipeline
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            The /ship verify loop: gating CI, nightly QA sweep, staging branches, deploys. Read from GitHub and Neon.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {status?.dispatchEnabled && (
+            <Button variant="outline" className="gap-1.5" onClick={dispatchSweep} disabled={busy === "dispatch"}>
+              {busy === "dispatch" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+              Run QA sweep now
+            </Button>
+          )}
+          <Button variant="outline" className="gap-1.5" onClick={load} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {note && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">{note}</div>
+      )}
+
+      {/* Status strip */}
+      <div className="analytics-panel">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-border/50">
+          <div className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Latest CI</p>
+            <div className="flex items-center gap-2">
+              {latestCi ? <RunIcon run={latestCi} /> : <span className="text-muted-foreground">,</span>}
+              <span className="text-sm font-semibold">
+                {latestCi ? (latestCi.status === "completed" ? (latestCi.conclusion ?? "done") : latestCi.status) : "no data"}
+              </span>
+            </div>
+            {latestCi && <p className="text-[11px] text-muted-foreground mt-1">{relativeTime(latestCi.createdAt)}</p>}
+          </div>
+          <div className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Latest Deploy</p>
+            <div className="flex items-center gap-2">
+              {latestDeploy ? <RunIcon run={latestDeploy} /> : <span className="text-muted-foreground">,</span>}
+              <span className="text-sm font-semibold">
+                {latestDeploy ? (latestDeploy.status === "completed" ? (latestDeploy.conclusion ?? "done") : latestDeploy.status) : "no data"}
+              </span>
+            </div>
+            {latestDeploy && <p className="text-[11px] text-muted-foreground mt-1">{relativeTime(latestDeploy.createdAt)}</p>}
+          </div>
+          <div className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Nightly Sweep</p>
+            <div className="flex items-center gap-2">
+              {latestNightly ? <RunIcon run={latestNightly} /> : <span className="text-muted-foreground">,</span>}
+              <span className="text-sm font-semibold">
+                {latestNightly ? (latestNightly.status === "completed" ? (latestNightly.conclusion ?? "done") : latestNightly.status) : "no data"}
+              </span>
+            </div>
+            {latestNightly && <p className="text-[11px] text-muted-foreground mt-1">{relativeTime(latestNightly.createdAt)}</p>}
+          </div>
+          <div className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Stage Branches</p>
+            <div className="flex items-center gap-2">
+              <GitBranch className={`h-4 w-4 ${branchCount > 0 ? "text-amber-500" : "text-muted-foreground"}`} />
+              <span className="text-sm font-semibold tabular-nums">
+                {status?.branches.available ? branchCount : "off"}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {status?.branches.available ? (branchCount > 0 ? "open, costing storage" : "none open") : "Neon key not set"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Gating CI */}
+        <div className="analytics-panel">
+          <div className="px-4 py-3 border-b border-border/50">
+            <h3 className="text-sm font-medium">Gating CI (blocks prod deploy)</h3>
+          </div>
+          {status?.ci.available ? <RunList runs={status.ci.runs} empty="No recent CI runs." /> : <Unconfigured reason={status?.ci.reason} />}
+        </div>
+
+        {/* Nightly sweep */}
+        <div className="analytics-panel">
+          <div className="px-4 py-3 border-b border-border/50">
+            <h3 className="text-sm font-medium">Nightly QA sweep (prod)</h3>
+          </div>
+          {status?.nightly.available ? <RunList runs={status.nightly.runs} empty="No sweep runs yet." /> : <Unconfigured reason={status?.nightly.reason} />}
+        </div>
+
+        {/* Deploys */}
+        <div className="analytics-panel">
+          <div className="px-4 py-3 border-b border-border/50">
+            <h3 className="text-sm font-medium">Deploy hook fires</h3>
+          </div>
+          {status?.deploys.available ? <RunList runs={status.deploys.runs} empty="No deploys yet." /> : <Unconfigured reason={status?.deploys.reason} />}
+        </div>
+
+        {/* Stage branches */}
+        <div className="analytics-panel">
+          <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
+            <h3 className="text-sm font-medium">Staging branches</h3>
+            {status?.branches.available && branchCount > 0 && (
+              <span className="text-xs text-muted-foreground">{branchCount} open</span>
+            )}
+          </div>
+          {!status?.branches.available ? (
+            <Unconfigured reason={status?.branches.reason} />
+          ) : branchCount === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">No staging branches open.</p>
+          ) : (
+            <div className="divide-y divide-border/50 max-h-[280px] overflow-y-auto">
+              {status.branches.items.map((b) => (
+                <div key={b.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <GitBranch className="h-4 w-4 text-amber-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-mono truncate">{b.name}</p>
+                    <p className="text-xs text-muted-foreground">{b.ageDays}d old &middot; {relativeTime(b.createdAt)}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive shrink-0"
+                          title="Tear down this branch" disabled={busy === b.id} onClick={() => teardown(b)}>
+                    {busy === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Local /ship sweeps (where you watch codex drive a browser) run in your terminal. This dashboard reflects
+        the shared pipeline state and can trigger the cloud sweep. Manual refresh only, to keep GitHub and Neon API calls down.
+      </p>
+    </div>
+  );
+}

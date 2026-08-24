@@ -1,0 +1,14 @@
+# Signals for the nextjs-vercel-postgres profile. Weights add up; 20+ is a
+# confident detection. See ../detect.sh for the line format.
+grep  15  package.json  "next"\s*:
+file   5  next.config.ts
+file   5  next.config.js
+file   5  next.config.mjs
+glob   5  app/layout.tsx
+glob   5  src/app/layout.tsx
+glob   5  apps/*/src/app/layout.tsx
+grep   8  package.json  drizzle-orm|@prisma/client|kysely|postgres"|"pg"
+file   6  vercel.ts
+file   6  vercel.json
+glob   4  .vercel/project.json
+grep   3  package.json  @playwright/test

@@ -1,0 +1,18 @@
+# Signals for the go-service profile. Weights add up; 20+ is a confident
+# detection. See ../detect.sh for the line format. A bare module
+# (go.mod + go.sum + cmd/*/main.go) scores 24 on its own; the framework,
+# sqlc, migration, and container signals separate a service from a CLI.
+file  15  go.mod
+file   4  go.sum
+glob   5  cmd/*/main.go
+file   3  main.go
+grep   8  go.mod  go-chi/chi|gin-gonic/gin|labstack/echo|jackc/pgx|sqlc-dev/sqlc|pressly/goose|ariga.io/atlas
+file   5  sqlc.yaml
+file   5  sqlc.yml
+glob   4  migrations/*.sql
+glob   4  db/migrations/*.sql
+file   3  Dockerfile
+file   3  .golangci.yml
+file   3  .golangci.yaml
+file   2  fly.toml
+file   2  atlas.hcl
