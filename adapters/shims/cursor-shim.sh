@@ -24,9 +24,22 @@ MODE="${1:-}"; shift || true
 INPUT=$(cat)
 
 # ---- tiny JSON field readers (string values, no nesting assumptions) --------
-jget() { # jget <key> -> first string value for "key": "..."
-  printf '%s' "$INPUT" | tr -d '\n' | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\(\([^\"\\\\]\|\\\\.\)*\)\".*/\1/p" | head -1
+json_field() { # json_field <json> <key> -> raw (still-escaped) string value, portable (no GNU sed extensions)
+  printf '%s' "$1" | tr -d '\n' | awk -v k="$2" '{
+    s = $0; pat = "\"" k "\"[[:space:]]*:[[:space:]]*\"";
+    if (match(s, pat)) {
+      s = substr(s, RSTART + RLENGTH); out = "";
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1);
+        if (c == "\\") { out = out c substr(s, i + 1, 1); i++; continue }
+        if (c == "\"") break;
+        out = out c
+      }
+      print out
+    }
+  }'
 }
+jget() { json_field "$INPUT" "$1"; }
 jesc() { local s="$1"; s=${s//\\/\\\\}; s=${s//\"/\\\"}; s=${s//$'\n'/\\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}; printf '%s' "$s"; }
 # value already JSON-escaped from the source payload: keep as-is when re-embedding
 SESSION=$(jget conversation_id); [ -n "$SESSION" ] || SESSION=$(jget session_id); [ -n "$SESSION" ] || SESSION=cursor
@@ -36,9 +49,7 @@ run_hook() { # run_hook <hook.sh> [args] <<< canonical-json  -> stdout of the ho
   local h="$1"; shift
   printf '%s' "$CANON" | bash "$h" "$@" 2>/dev/null || true
 }
-field_of() { # field_of <json> <key>
-  printf '%s' "$1" | tr -d '\n' | sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\(\([^\"\\\\]\|\\\\.\)*\)\".*/\1/p" | head -1
-}
+field_of() { json_field "$1" "$2"; }
 
 case "$MODE" in
   shell)

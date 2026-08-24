@@ -21,7 +21,22 @@ set -u
 EVENT="${1:-}"; shift || true
 INPUT=$(cat)
 
-field_of() { printf '%s' "$1" | tr -d '\n' | sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\(\([^\"\\\\]\|\\\\.\)*\)\".*/\1/p" | head -1; }
+json_field() { # json_field <json> <key> -> raw (still-escaped) string value, portable (no GNU sed extensions)
+  printf '%s' "$1" | tr -d '\n' | awk -v k="$2" '{
+    s = $0; pat = "\"" k "\"[[:space:]]*:[[:space:]]*\"";
+    if (match(s, pat)) {
+      s = substr(s, RSTART + RLENGTH); out = "";
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1);
+        if (c == "\\") { out = out c substr(s, i + 1, 1); i++; continue }
+        if (c == "\"") break;
+        out = out c
+      }
+      print out
+    }
+  }'
+}
+field_of() { json_field "$1" "$2"; }
 
 # rewrite hook_event_name to the canonical one so hooks that check it behave
 case "$EVENT" in
