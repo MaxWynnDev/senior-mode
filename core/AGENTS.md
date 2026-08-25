@@ -79,7 +79,7 @@ Invoke by name; each is a checklist with a stop condition. They live in
 `go` (verify, simplify, review, commit), `review`, `pre-push`, `iterate
 <check>`, `ship`, `worktree`, `learn`, `techdebt`, `incident`, `standup`,
 `loc-budget`, `tenant-audit`, `migration-ritual`, `audit-prompt`,
-`new-claude-feature`. Source of truth: `.senior-mode/commands/`.
+`new-ai-feature`. Source of truth: `.senior-mode/commands/`.
 
 ## Reviewers
 

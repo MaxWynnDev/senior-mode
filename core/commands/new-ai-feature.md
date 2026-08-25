@@ -1,9 +1,9 @@
 ---
-description: Scaffold a new Claude-powered service with the project rubric baked in
+description: Scaffold a new LLM-powered service with the project rubric baked in
 argument-hint: <feature-name>
 ---
 
-Build a new Claude-powered service named "$ARGUMENTS" in your services
+Build a new LLM-powered service named "$ARGUMENTS" in your services
 directory.
 
 Read `PROMPTING.md` at the repo root first, then follow the pattern of

@@ -17,7 +17,7 @@ Code-specific notes belong below. Keep this file short. -->
   AGENTS.md: `/go`, `/ship`, `/iterate`, `/review`, `/pre-push`,
   `/worktree`, `/learn`, `/techdebt`, `/incident`, `/standup`,
   `/loc-budget`, `/tenant-audit`, `/migration-ritual`, `/audit-prompt`,
-  `/new-claude-feature`<!-- , `/stage`, `/qa-sweep` (stack profile) -->.
+  `/new-ai-feature`<!-- , `/stage`, `/qa-sweep` (stack profile) -->.
 - Subagents (`.claude/agents/`) are the reviewers; `/pre-push` fans them
   out in parallel. Delete the ones whose domain this repo lacks.
 - Path-scoped rules live in `.claude/rules/` with `paths:` frontmatter
