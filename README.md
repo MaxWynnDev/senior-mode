@@ -190,15 +190,17 @@ Plainly, so nobody has to find out the hard way:
 senior-mode/
   starter/                   the 5-minute global install, per agent
   README.md  START-HERE.md  SETUP.md  KICKOFF-PROMPT.md  STACK.md  CHANGELOG.md
+  CONTRIBUTING.md  SECURITY.md
   install.sh                 --agent, --stack, --dry-run, --force, --list-stacks
-  AGENTS.md                  universal entry-point template
-  CLAUDE.md                  Claude Code shim template
+  AGENTS.md / CLAUDE.md      this repo's own instructions (it runs its own kit;
+                             the templates that ship to users are in core/)
   ENGINEERING-PRINCIPLES.md  never/always lists, money/PII/tenant invariants, LOC budget, refactor tiers, verification craft
   PROMPT-STANDARD.md         the 5-element brief, verification loops, context hygiene
   PROMPTING.md               writing LLM system prompts (rubric, evals)
   WORKFLOW.md                deploy pipeline template (two verification models)
 
   core/                      the source of truth
+    AGENTS.md  CLAUDE.md    the entry-point templates installed into your repo
     hooks/                   9 wired, 2 optional, 1 test harness
     rules/                   5 stack-neutral path rules
     reviewers/               6 briefs: 5 read-only reviewers + 1 app verifier

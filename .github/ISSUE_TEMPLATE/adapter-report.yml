@@ -1,0 +1,81 @@
+name: Adapter report
+description: You ran senior-mode under an agent. Tell me what happened, working or not.
+title: "[adapter] <agent>: "
+labels: ["adapter-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful issue anyone can file. I ran Claude Code and
+        Codex CLI end to end; the other adapters follow their agent's
+        documented format and pass the harness, but I have not sat inside
+        those agents. **A report that it works is as useful as one that it
+        does not.**
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex CLI
+        - Cursor
+        - Gemini CLI
+        - GitHub Copilot (CLI)
+        - GitHub Copilot (cloud agent)
+        - GitHub Copilot (VS Code)
+        - OpenCode
+        - Factory Droid
+        - Devin CLI
+        - Augment
+        - Other (say which in the description)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agent version
+      placeholder: "e.g. 2.1.241"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: [macOS, Linux, "Windows (Git Bash)", "Windows (WSL)"]
+    validations:
+      required: true
+  - type: checkboxes
+    id: what-fired
+    attributes:
+      label: What actually fired
+      description: Leave unchecked what did not happen. Blank boxes are the report.
+      options:
+        - label: "The BEFORE checklist appeared (`[SENIOR CHECK | BEFORE]`)"
+        - label: "The AFTER check ran at the end of a turn"
+        - label: "`git push` without the trailer was denied"
+        - label: "`git commit` with a bare TODO was denied"
+        - label: "A piped CI watcher (`gh run watch ... | tail`) was denied"
+        - label: "The formatter ran after an edit"
+        - label: "Path-scoped rules loaded when I touched a matching file"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, what you got. One paragraph is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: payload
+    attributes:
+      label: The hook payload, if you can get it
+      description: >
+        This is the whole fix when a shim is wrong. Most agents log hook
+        stdin somewhere, or you can capture it by pointing the hook at
+        `cat > /tmp/payload.json` for one turn. Redact anything private.
+      render: json
+  - type: textarea
+    id: config
+    attributes:
+      label: The generated config
+      description: "The relevant file: `.cursor/hooks.json`, `.codex/hooks.json`, `.gemini/settings.json`, and so on."
+      render: json

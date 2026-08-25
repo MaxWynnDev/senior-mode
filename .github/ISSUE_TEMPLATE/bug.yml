@@ -1,0 +1,41 @@
+name: Bug
+description: Something in the kit does not do what it says
+title: "<what broke>: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, what you got, and the command that produced it.
+    validations:
+      required: true
+  - type: textarea
+    id: harness
+    attributes:
+      label: Harness output
+      description: >
+        `bash core/hooks/test-checklist.sh` from the kit, or
+        `bash .senior-mode/hooks/test-checklist.sh` from an installed repo.
+        The last line is enough unless something failed, in which case paste
+        the `[FAIL]` lines.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and bash version
+      placeholder: "macOS 15.4, bash 3.2.57 / Windows 11, Git Bash 2.47"
+    validations:
+      required: true
+  - type: input
+    id: agents
+    attributes:
+      label: Agents installed
+      placeholder: "Claude Code 2.1.241, Cursor 2.4"
+  - type: input
+    id: stack
+    attributes:
+      label: Stack profile, if any
+      placeholder: "nextjs-vercel-postgres, or none"

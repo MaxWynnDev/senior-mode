@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question, idea, or "here is my counterexample"
+    url: https://github.com/MaxWynnDev/senior-mode/discussions
+    about: >
+      Discussions is the right place for setup questions, working-style
+      arguments, and cases where the hooks did not catch something. The
+      last one is genuinely welcome; it is how the checks get sharper.
+  - name: Security issue
+    url: https://github.com/MaxWynnDev/senior-mode/security/advisories/new
+    about: Report privately. See SECURITY.md for what counts.

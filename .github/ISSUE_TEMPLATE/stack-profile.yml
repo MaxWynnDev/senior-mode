@@ -1,0 +1,56 @@
+name: Stack profile
+description: Propose a profile for a stack the kit does not cover
+title: "[stack] "
+labels: ["stack-profile"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A profile is a folder under `stacks/`. If you are willing to write
+        it, open the PR instead and skip this; `CONTRIBUTING.md` has the
+        file list. Use this issue to propose one or to ask whether it is
+        wanted before you spend the time.
+  - type: input
+    id: name
+    attributes:
+      label: Profile name
+      placeholder: "elixir-phoenix-postgres"
+    validations:
+      required: true
+  - type: textarea
+    id: assumes
+    attributes:
+      label: What it assumes
+      description: Language, framework, database, migration tool, test runner, linter, package manager, deploy target, CI.
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: The sanctioned commands
+      description: >
+        install, dev, typecheck, lint, test, format, migrate generate,
+        migrate check, migrate prod, deploy. Only commands you have
+        actually run. A wrong migrate command is worse than no profile.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: signals
+    attributes:
+      label: How to detect it
+      description: >
+        Which manifest, config file, or dependency proves a repo is on this
+        stack, and what distinguishes it from the nearest neighbour (the
+        profile must not fire on that neighbour).
+    validations:
+      required: true
+  - type: textarea
+    id: traps
+    attributes:
+      label: The traps worth a rule
+      description: >
+        The mistakes this stack invites: the migration that is not
+        reversible, the query that silently returns nothing, the thing that
+        looks atomic and is not. This is the part that makes a profile
+        worth having.

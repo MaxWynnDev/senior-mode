@@ -143,8 +143,8 @@ sm_copy "$KIT/stacks/README.md"  "$SM_TARGET/.senior-mode/stacks/README.md"
 if [ "$SM_DRY" = no ]; then chmod +x "$SM_TARGET"/.senior-mode/hooks/*.sh "$SM_TARGET"/.senior-mode/adapters/*.sh "$SM_TARGET"/.senior-mode/stacks/detect.sh 2>/dev/null || true; fi
 
 # ---- 4. root docs -------------------------------------------------------------
-sm_copy "$KIT/AGENTS.md" "$SM_TARGET/AGENTS.md"
-case " $AGENTS " in *" claude "*) sm_copy "$KIT/CLAUDE.md" "$SM_TARGET/CLAUDE.md" ;; esac
+sm_copy "$KIT/core/AGENTS.md" "$SM_TARGET/AGENTS.md"
+case " $AGENTS " in *" claude "*) sm_copy "$KIT/core/CLAUDE.md" "$SM_TARGET/CLAUDE.md" ;; esac
 sm_copy "$KIT/ENGINEERING-PRINCIPLES.md" "$SM_TARGET/ENGINEERING-PRINCIPLES.md"
 sm_copy "$KIT/PROMPT-STANDARD.md"        "$SM_TARGET/PROMPT-STANDARD.md"
 sm_copy "$KIT/PROMPTING.md"              "$SM_TARGET/PROMPTING.md"
