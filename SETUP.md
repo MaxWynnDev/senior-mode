@@ -100,7 +100,7 @@ whose domain your repo lacks; the kickoff asks.
 Procedures (`.senior-mode/commands/`, wired as slash commands and as
 Agent Skills): `go`, `ship`, `iterate`, `review`, `pre-push`, `worktree`,
 `learn`, `techdebt`, `incident`, `standup`, `loc-budget`, `tenant-audit`,
-`migration-ritual`, `audit-prompt`, `new-claude-feature`; the reference
+`migration-ritual`, `audit-prompt`, `new-ai-feature`; the reference
 profile adds `stage` and `qa-sweep`. Agents without subagents run the
 reviewer briefs as checklists inside `pre-push`.
 

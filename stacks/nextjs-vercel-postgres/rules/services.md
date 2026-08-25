@@ -43,7 +43,7 @@ existing AI call site:
   500 / 502 / 503 / 504 / 529, spend record after response, persistence.
 - Model ID from the one config module; the pricing table knows it.
 
-The `/new-claude-feature <name>` slash command scaffolds this skeleton.
+The `/new-ai-feature <name>` slash command scaffolds this skeleton.
 
 ## God-file LOC discipline
 

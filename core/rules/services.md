@@ -33,7 +33,7 @@ Read `PROMPTING.md` first, then copy your most thorough existing call
 site. Keep the prompt, builders, and validator in a PURE module (no DB
 or framework imports) so the eval harness can import them; the shell
 around it does the budget gate, the call, the retries, the spend record,
-and persistence. `/new-claude-feature <name>` scaffolds this.
+and persistence. `/new-ai-feature <name>` scaffolds this.
 
 ## Size
 
