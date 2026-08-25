@@ -108,7 +108,7 @@ flag the inference in one line. If 2 or more are missing, or the work
 touches money, auth, or live data with any element missing, stop and
 name what is missing with a best guess. Never trigger this on Q&A,
 lookups, one-line shell commands, or clearly bounded prompts. Full
-guide: `~/.claude/PROMPTING-CLAUDE-CODE.md`.
+guide: `~/.claude/PROMPTING-CODING-AGENTS.md`.
 
 ## User-facing copy
 

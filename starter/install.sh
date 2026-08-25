@@ -53,7 +53,7 @@ put() { # put <relative source|-> <absolute destination>   ("-" reads stdin)
 agents_md() { sed "s|{{DOCS}}|$1|g" "$SRC/AGENTS.md"; }   # <docs-dir>
 docs() { # docs <dir>  the doctrine + prompting guide + hooks (+ shims)
   put ENGINEERING-PRINCIPLES.md "$1/ENGINEERING-PRINCIPLES.md"
-  put PROMPTING-CLAUDE-CODE.md  "$1/PROMPTING-CODING-AGENTS.md"
+  put PROMPTING-CODING-AGENTS.md "$1/PROMPTING-CODING-AGENTS.md"
   put hooks/senior-check-before.sh "$1/hooks/senior-check-before.sh"
   put hooks/senior-check-after.sh  "$1/hooks/senior-check-after.sh"
 }
@@ -82,7 +82,7 @@ for a in $LIST; do
       D="$HOME/.claude"
       say "[claude] $D"
       put CLAUDE.md "$D/CLAUDE.md"
-      put PROMPTING-CLAUDE-CODE.md "$D/PROMPTING-CLAUDE-CODE.md"
+      put PROMPTING-CODING-AGENTS.md "$D/PROMPTING-CODING-AGENTS.md"
       put ENGINEERING-PRINCIPLES.md "$D/ENGINEERING-PRINCIPLES.md"
       put settings.json "$D/settings.json"
       put hooks/senior-check-before.sh "$D/hooks/senior-check-before.sh"

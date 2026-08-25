@@ -1,8 +1,8 @@
-# How to brief Claude Code
+# How to brief a coding agent
 
-Most "Claude is being dumb" moments are briefing problems. This is the
-standard that fixes them. Install at `~/.claude/PROMPTING-CLAUDE-CODE.md`
-(the global CLAUDE.md points here) and read it once.
+Most "the agent is being dumb" moments are briefing problems. This is the
+standard that fixes them. The starter installs it next to your agent's
+global instructions file, which points here. Read it once.
 
 ## When this applies
 
@@ -42,7 +42,7 @@ success looks like (STOP).
 > cause, propose fix as a plan, wait for approval before editing. Stop
 > after I approve the plan."
 
-## The 4-tier calibration contract (how Claude enforces it)
+## The 4-tier calibration contract (how the agent enforces it)
 
 - **Tier 1, pass through:** Q&A, lookups, chat, one-liners, bounded
   short prompts where intent is obvious.
@@ -52,23 +52,23 @@ success looks like (STOP).
 - **Tier 4, 2+ missing, or money/auth work with ANY element missing:**
   stop, name the missing elements, make a best guess, wait.
 
-Calibration, not nagging. If Claude guesses right 90% of the time,
+Calibration, not nagging. If the agent guesses right 90% of the time,
 asking on the other 10% is cheaper than guessing wrong.
 
 ## Delegate, don't pair
 
-Treat Claude like an engineer you delegated to, not one you are
+Treat the agent like an engineer you delegated to, not one you are
 pair-programming with. The 5 elements ARE the brief. Then let it run;
 it performs best with fewer interruptions and a real feedback loop.
 Come back for the result or a genuine question, not to watch.
 
 For a genuinely ambiguous multi-file build, start in plan mode
-(Shift+Tab twice): Claude researches and proposes before it edits, and
+(Shift+Tab twice in Claude Code): the agent researches and proposes before it edits, and
 you approve once instead of correcting the implementation piecemeal.
 
 ## Verification loops (the single biggest win)
 
-Give Claude a check it can run itself against and let it iterate until
+Give the agent a check it can run itself against and let it iterate until
 the check passes. Instead of:
 
 > "Build the order summary."
@@ -108,7 +108,7 @@ green from any of these carries no information.
 | Convention for one layer or path | `.claude/rules/<area>.md` with `paths:` frontmatter |
 | Multi-step procedure | `.claude/commands/<name>.md` (a slash command) |
 | How YOU work (tone, approval style, risk appetite) | memory: type `#` then the rule |
-| Rule that must hold no matter what Claude decides | a hook in `.claude/settings.json` |
+| Rule that must hold no matter what the agent decides | a hook (wired per agent by the starter) |
 
 Prose in CLAUDE.md is context; a hook is enforcement.
 
