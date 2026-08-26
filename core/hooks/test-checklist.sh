@@ -298,6 +298,11 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [ "$out" = "{}" ]; then ok "gemini shim: plain command -> {}"; else fail "gemini shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeAgent","prompt":"hi"}' | bash "$GSHIM" BeforeAgent "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"hookEventName":"BeforeAgent"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: BeforeAgent carries the BEFORE checklist"; else fail "gemini shim: BeforeAgent context"; fi
+  out=$(printf '{"session_id":"ga1","hook_event_name":"AfterAgent","stop_hook_active":false}' | bash "$GSHIM" AfterAgent "$HERE/senior-check-after.sh")
+  if [[ "$out" == *'"decision":"deny"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: AfterAgent block -> deny re-prompts with the AFTER checklist"; else fail "gemini shim: AfterAgent deny (got: $out)"; fi
+  out=$(printf '{"session_id":"ga1","hook_event_name":"AfterAgent","stop_hook_active":true}' | bash "$GSHIM" AfterAgent "$HERE/senior-check-after.sh")
+  if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "gemini shim: stop_hook_active passes through, retry is not re-denied"; else fail "gemini shim: AfterAgent backstop (got: $out)"; fi
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-ga1"
 fi
 
 # --- install.sh (kit source tree only) ---------------------------------------
