@@ -8,7 +8,10 @@
 # as an alias, so the canonical hooks locate the repo unchanged.
 # What cannot be mirrored: beforeSubmitPrompt cannot inject context, so the
 # BEFORE checklist arrives once per session via sessionStart; the AFTER check
-# uses stop -> followup_message (auto-submitted once per turn, sentinel-guarded).
+# uses stop -> followup_message. The shim maps Cursor's loop_count to
+# stop_hook_active, so the canonical backstop in senior-check-after.sh caps
+# the loop at one follow-up per block. No loop_limit here: Cursor counts it
+# per conversation, which silenced the after-check from turn 2 onward.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../_lib.sh"
 SM_TARGET="$(cd "$1" && pwd)"
@@ -37,7 +40,7 @@ cat <<EOF | sm_put "$SM_TARGET/.cursor/hooks.json"
       { "command": "$S edit \\"$H/post-edit-format.sh\\"", "timeout": 30 }
     ],
     "stop": [
-      { "command": "$S stop \\"$H/senior-check-after.sh\\"", "timeout": 5, "loop_limit": 1 }
+      { "command": "$S stop \\"$H/senior-check-after.sh\\"", "timeout": 5 }
     ]
   }
 }

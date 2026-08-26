@@ -7,7 +7,9 @@
 #   cursor-shim.sh edit    <hook.sh>      afterFileEdit        -> PostToolUse(Write)
 #   cursor-shim.sh session <hook.sh> [args]  sessionStart      -> SessionStart (+ context)
 #   cursor-shim.sh prompt  <hook.sh>...   beforeSubmitPrompt   -> UserPromptSubmit (touch/advise; cannot inject)
-#   cursor-shim.sh stop    <hook.sh>      stop                 -> Stop (block -> followup_message, once per turn)
+#   cursor-shim.sh stop    <hook.sh>      stop                 -> Stop (block -> followup_message;
+#                                         loop_count > 0 maps to stop_hook_active so the
+#                                         canonical backstop caps the loop, not loop_limit)
 #
 # Cursor stdin (documented): beforeShellExecution {command, cwd, conversation_id,
 # hook_event_name, workspace_roots[]}; afterFileEdit {file_path, edits[]};
@@ -36,6 +38,15 @@ json_field() { # json_field <json> <key> -> raw (still-escaped) string value, po
         out = out c
       }
       print out
+    }
+  }'
+}
+json_num() { # json_num <json> <key> -> bare numeric value (or empty), portable
+  printf '%s' "$1" | tr -d '\n' | awk -v k="$2" '{
+    s = $0; pat = "\"" k "\"[[:space:]]*:[[:space:]]*";
+    if (match(s, pat)) {
+      s = substr(s, RSTART + RLENGTH);
+      if (match(s, /^-?[0-9]+/)) print substr(s, RSTART, RLENGTH)
     }
   }'
 }
@@ -96,7 +107,16 @@ case "$MODE" in
     printf '{"continue":true}\n'   # Cursor cannot inject context here; the checklist arrives via sessionStart
     ;;
   stop)
-    CANON=$(printf '{"session_id":"%s","hook_event_name":"Stop","stop_hook_active":false}' "$SESSION")
+    # Cursor's loop_count counts the stop hook's own auto follow-ups; nonzero
+    # means the model is already continuing because of us, which is exactly
+    # what stop_hook_active means in the canonical contract. Mapping it lets
+    # senior-check-after.sh's own backstop end the loop (at most one follow-up
+    # per block), instead of a hooks.json loop_limit that Cursor counts per
+    # conversation rather than per turn. A non-numeric value maps to false,
+    # which only ever risks one extra follow-up, never a runaway.
+    LOOPS=$(json_num "$INPUT" loop_count); [ -n "$LOOPS" ] || LOOPS=0
+    ACTIVE=false; [ "$LOOPS" -gt 0 ] 2>/dev/null && ACTIVE=true
+    CANON=$(printf '{"session_id":"%s","hook_event_name":"Stop","stop_hook_active":%s}' "$SESSION" "$ACTIVE")
     OUT=$(run_hook "$1")
     if printf '%s' "$OUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"block"'; then
       R=$(field_of "$OUT" reason)
