@@ -57,7 +57,14 @@ export const SeniorMode: Plugin = async ({ $, directory }) => {
 
   async function run(script: string, payload: object, arg = ""): Promise<string> {
     try {
-      const out = await $`bash ${hooks}/${script} ${arg}`.env(env).cwd(directory).quiet().nothrow().stdin(JSON.stringify(payload));
+      // Bun's shell exposes stdin as a readonly property, not a method; the
+      // only way to feed it is a redirect. An empty ${arg} would become an
+      // empty argv slot under Bun quoting, so it is interpolated only when set.
+      const body = new Response(JSON.stringify(payload));
+      const cmd = arg
+        ? $`bash ${hooks}/${script} ${arg} < ${body}`
+        : $`bash ${hooks}/${script} < ${body}`;
+      const out = await cmd.env(env).cwd(directory).quiet().nothrow();
       return out.stdout.toString();
     } catch {
       return "";

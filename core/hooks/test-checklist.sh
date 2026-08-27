@@ -27,6 +27,8 @@
 #     stop_hook_active forces allow so it can never run to the block cap
 #   - stacks/detect.sh verdicts and the --list picker
 #   - the Cursor and Gemini shims (payload translation both ways)
+#   - the OpenCode plugin under Bun: deny path, fail-open on a missing
+#     guard, BEFORE context (skipped where bun is absent)
 #   - install.sh dry run + real run into a scratch repo (kit source tree only)
 #
 # Run directly:  bash core/hooks/test-checklist.sh   (or .senior-mode/hooks/test-checklist.sh in an installed repo)
@@ -306,6 +308,46 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [ "$out" = "{}" ]; then ok "gemini shim: plain command -> {}"; else fail "gemini shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeAgent","prompt":"hi"}' | bash "$GSHIM" BeforeAgent "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"hookEventName":"BeforeAgent"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: BeforeAgent carries the BEFORE checklist"; else fail "gemini shim: BeforeAgent context"; fi
+fi
+
+# --- opencode plugin (generated TS; executes only where bun exists) ----------
+OGEN="$HERE/../../adapters/opencode/generate.sh"
+if [ -f "$OGEN" ]; then
+  if command -v bun >/dev/null 2>&1; then
+    OREPO="$SCRATCH/opencode"; rm -rf "$OREPO"; mkdir -p "$OREPO"; git -C "$OREPO" init -q
+    git -C "$OREPO" -c user.email=t@t.t -c user.name=t commit --allow-empty -m "no trailer here" -q
+    bash "$OGEN" "$OREPO" >/dev/null 2>&1
+    mkdir -p "$OREPO/.senior-mode/hooks"
+    cp "$HERE/pre-push-checklist.sh" "$HERE/senior-check-before.sh" "$OREPO/.senior-mode/hooks/"
+    cat > "$SCRATCH/oc-driver.ts" <<'DRIVER'
+// Drives the generated OpenCode plugin under Bun against the real hooks.
+// The missing guard scripts (only pre-push is copied) double as the
+// fail-open case: a hook that is not there must allow, not crash.
+import { $ } from "bun";
+const dir = process.env.SM_OC_REPO as string;
+const { SeniorMode } = await import(dir + "/.opencode/plugins/senior-mode.ts");
+const plugin = await (SeniorMode as any)({ $, directory: dir });
+let deny = "";
+try {
+  await plugin["tool.execute.before"]({ tool: "bash", sessionID: "oc1", callID: "c1" }, { args: { command: "git push origin main" } });
+} catch (e) { deny = String(e); }
+console.log(deny.includes("Push blocked") ? "DENY-OK" : "DENY-MISS " + deny);
+let allow = "ALLOW-OK";
+try {
+  await plugin["tool.execute.before"]({ tool: "bash", sessionID: "oc1", callID: "c2" }, { args: { command: "ls" } });
+} catch (e) { allow = "ALLOW-MISS " + String(e); }
+console.log(allow);
+const out = { system: [] as string[] };
+await plugin["experimental.chat.system.transform"]({ sessionID: "oc1", model: {} }, out);
+console.log(out.system.join(" ").includes("SENIOR CHECK") ? "CTX-OK" : "CTX-MISS");
+DRIVER
+    out=$(cd "$OREPO" && SM_OC_REPO="$OREPO" bun "$SCRATCH/oc-driver.ts" 2>&1)
+    case "$out" in *DENY-OK*) ok "opencode plugin: push without trailer -> deny reason thrown" ;; *) fail "opencode plugin: deny (got: $out)" ;; esac
+    case "$out" in *ALLOW-OK*) ok "opencode plugin: plain command passes, missing guards fail open" ;; *) fail "opencode plugin: allow (got: $out)" ;; esac
+    case "$out" in *CTX-OK*) ok "opencode plugin: system transform carries the BEFORE checklist" ;; *) fail "opencode plugin: context (got: $out)" ;; esac
+  else
+    ok "opencode plugin: (bun absent) execution cases skipped"
+  fi
 fi
 
 # --- install.sh (kit source tree only) ---------------------------------------
