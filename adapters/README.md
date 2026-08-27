@@ -23,10 +23,13 @@ Claude Code hook JSON on stdout (`hookSpecificOutput.permissionDecision`
 
 That contract turned out to be the industry's de facto standard. As of
 August 2026 it is spoken natively (event names, `matcher`, `hooks[]`,
-`type: command`) by **Claude Code, Codex CLI, GitHub Copilot (CLI, cloud
-agent, VS Code), Factory Droid, Devin CLI, and Augment**.
+`type: command`) by **Claude Code, Codex CLI, GitHub Copilot (CLI and
+cloud agent; hooks do not run in VS Code), Factory Droid, Devin CLI, and
+Augment**.
 For those, the adapter only picks the file name and the repo-root
-expression. **Cursor** and **Gemini CLI** have their own event names and
+expression. One exception on Copilot: its documented deny shape is a
+TOP-LEVEL `permissionDecision`, not the nested `hookSpecificOutput`, so
+its shell guards run through `copilot-shim.sh` (one way, stdout only). **Cursor** and **Gemini CLI** have their own event names and
 stdout shapes, so a shim (`adapters/shims/`) translates in both
 directions. **OpenCode** has no shell-hook config; its plugin API runs
 the same scripts from TypeScript.
@@ -47,7 +50,7 @@ behaviour is asked for in `AGENTS.md` rather than enforced.
 | Codex CLI | `AGENTS.md` (root + nested) | native `.codex/hooks.json` | native | native | native | instruction (nested AGENTS.md optional) | `.codex/agents/*.toml` | `.agents/skills` |
 | Cursor | `AGENTS.md` (root + nested) | shim: `beforeShellExecution` | `sessionStart` context (once per session) | `stop` → follow-up message, once per turn | `afterFileEdit` | `.cursor/rules/*.mdc` globs | `.cursor/agents` | `.agents/skills` |
 | Gemini CLI | `AGENTS.md` via `context.fileName` | shim: `BeforeTool` (`run_shell_command`) | `BeforeAgent` context | `AfterAgent` system message (no re-prompt) | `AfterTool` | instruction | `.gemini/agents` | `.gemini/commands/*.toml` + skills |
-| Copilot | `AGENTS.md` + `.github/copilot-instructions.md` | native `.github/hooks/*.json` (PascalCase events) | native | native (`Stop`) | native | `.github/instructions` `applyTo` | `.github/agents/*.agent.md` | `.agents/skills` |
+| Copilot | `AGENTS.md` + `.github/copilot-instructions.md` | `.github/hooks/*.json`, denies via `copilot-shim.sh` | instruction (hook output dropped) | native (`Stop`) | native | `.github/instructions` `applyTo` | `.github/agents/*.agent.md` | `.agents/skills` |
 | OpenCode | `AGENTS.md` (root, nested lazily) | plugin: `tool.execute.before` throws | system-prompt transform | not available | `tool.execute.after` | `instructions` glob (always loaded) | `.opencode/agents` | `.opencode/commands` + skills |
 | Factory Droid | `AGENTS.md` | native `.factory/hooks.json` | native | native | native | instruction | `.factory/droids` | `.factory/commands` + skills |
 | Devin CLI | `AGENTS.md` | native `.devin/hooks.v1.json` | native | native | native | `.devin/rules` (`glob` / `model_decision`) | instruction | `.agents/skills` |

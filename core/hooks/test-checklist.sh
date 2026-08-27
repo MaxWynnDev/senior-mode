@@ -27,6 +27,8 @@
 #     stop_hook_active forces allow so it can never run to the block cap
 #   - stacks/detect.sh verdicts and the --list picker
 #   - the Cursor and Gemini shims (payload translation both ways)
+#   - the Copilot shim (nested deny -> top-level permissionDecision) and
+#     the copilot generator (command key, shim routing, no dead hooks)
 #   - the OpenCode plugin under Bun: deny path, fail-open on a missing
 #     guard, BEFORE context (skipped where bun is absent)
 #   - install.sh dry run + real run into a scratch repo (kit source tree only)
@@ -312,6 +314,45 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [ "$out" = "{}" ]; then ok "gemini shim: plain command -> {}"; else fail "gemini shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeAgent","prompt":"hi"}' | bash "$GSHIM" BeforeAgent "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"hookEventName":"BeforeAgent"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: BeforeAgent carries the BEFORE checklist"; else fail "gemini shim: BeforeAgent context"; fi
+fi
+
+# --- copilot shim: nested guard deny -> top-level permissionDecision ---------
+PSHIM="$HERE/../../adapters/shims/copilot-shim.sh"; [ -f "$PSHIM" ] || PSHIM="$HERE/../adapters/copilot-shim.sh"
+if [ -f "$PSHIM" ]; then
+  PREPO="$SCRATCH/copilotshim"; rm -rf "$PREPO"; mkdir -p "$PREPO"; git -C "$PREPO" init -q
+  git -C "$PREPO" -c user.email=t@t.t -c user.name=t commit --allow-empty -m "no trailer here" -q
+  out=$(cd "$PREPO" && payload "git push origin main" | CLAUDE_PROJECT_DIR="$PREPO" bash "$PSHIM" guard "$PUSH_HOOK")
+  case "$out" in
+    *'"permissionDecision":"deny"'*)
+      case "$out" in
+        *hookSpecificOutput*) fail "copilot shim: deny still nested (got: $out)" ;;
+        *) ok "copilot shim: push without trailer -> top-level permissionDecision deny" ;;
+      esac ;;
+    *) fail "copilot shim: deny (got: $out)" ;;
+  esac
+  out=$(cd "$PREPO" && payload "ls -la" | CLAUDE_PROJECT_DIR="$PREPO" bash "$PSHIM" guard "$PUSH_HOOK")
+  if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "copilot shim: plain command -> {}"; else fail "copilot shim: allow (got: $out)"; fi
+fi
+
+# --- copilot generator: command key, shim routing, no dead prompt hooks ------
+CGEN="$HERE/../../adapters/copilot/generate.sh"
+if [ -f "$CGEN" ]; then
+  CPREPO="$SCRATCH/copilotgen"; rm -rf "$CPREPO"; mkdir -p "$CPREPO"; git -C "$CPREPO" init -q
+  bash "$CGEN" "$CPREPO" >/dev/null 2>&1
+  CJ=$(cat "$CPREPO/.github/hooks/senior-mode.json" 2>/dev/null)
+  case "$CJ" in *'"command": "bash'*) ok "copilot: hooks use the cross-platform command key" ;; *) fail "copilot: command key missing" ;; esac
+  case "$CJ" in *'"bash":'*) fail "copilot: bash-only key still present (dead on Windows)" ;; *) ok "copilot: no bash-only key" ;; esac
+  case "$CJ" in *copilot-shim.sh*) ok "copilot: guards route through the deny shim" ;; *) fail "copilot: PreToolUse does not use the shim" ;; esac
+  case "$CJ" in *senior-check-before.sh*) fail "copilot: userPromptSubmitted hook wired though its output is dropped" ;; *) ok "copilot: no hooks wired where Copilot drops the output" ;; esac
+  if command -v node >/dev/null 2>&1; then
+    if (cd "$CPREPO" && node -e "require('./.github/hooks/senior-mode.json')" >/dev/null 2>&1); then
+      ok "copilot: generated JSON parses"
+    else
+      fail "copilot: generated JSON does not parse"
+    fi
+  else
+    ok "copilot: (node absent) JSON parse check skipped"
+  fi
 fi
 
 # --- opencode plugin (generated TS; executes only where bun exists) ----------
