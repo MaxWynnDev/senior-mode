@@ -33,12 +33,48 @@ reviewers_md() { # <dir> <suffix>  frontmatter name/description/tools kept (the 
 
 case "$AGENT" in
   factory)
-    sm_hooks_json "$ROOT" no | sm_put "$SM_TARGET/.factory/hooks.json"
+    # Factory's tool vocabulary: shell commands run as Execute, file edits as
+    # Create/Edit/ApplyPatch (the docs' own formatter example); there is no
+    # Bash tool, so Claude-name matchers never fire. Hook commands run from
+    # Droid's cwd, which can differ from the repo root, so the documented
+    # idiom is an absolute path via $FACTORY_PROJECT_DIR.
+    sm_hooks_json '$FACTORY_PROJECT_DIR' no timeout 1 command Execute 'Create|Edit|ApplyPatch' | sm_put "$SM_TARGET/.factory/hooks.json"
     commands_dir "$SM_TARGET/.factory/commands"
     reviewers_md "$SM_TARGET/.factory/droids" ".md"
     skills ;;
   devin)
-    sm_hooks_json "$ROOT" no | sm_put "$SM_TARGET/.devin/hooks.v1.json"
+    # Devin's tool vocabulary: shell commands run as exec, file edits as
+    # write/edit/apply_patch; no Bash alias is documented. Its PreToolUse
+    # deny channel is a top-level {"decision":"block"}, not the nested
+    # permissionDecision, so the shell guards run through devin-shim.sh.
+    # Everything else speaks the canonical contract natively (nested
+    # additionalContext on UserPromptSubmit/SessionStart, Stop
+    # decision/reason, stop_hook_active). DEVIN_PROJECT_DIR is the
+    # documented project root for hook commands.
+    DR='$DEVIN_PROJECT_DIR'
+    DH="$DR/.senior-mode/hooks"
+    cat <<EOF | sm_put "$SM_TARGET/.devin/hooks.v1.json"
+{
+  "SessionStart": [
+    { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" register", "timeout": 15 } ] }
+  ],
+  "SessionEnd": [
+    { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" unregister", "timeout": 15 } ] }
+  ],
+  "UserPromptSubmit": [
+    { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" touch", "timeout": 15 }, { "type": "command", "command": "bash \\"$DH/senior-check-before.sh\\"", "timeout": 10 }, { "type": "command", "command": "bash \\"$DH/ultracode-advisor.sh\\"", "timeout": 10 } ] }
+  ],
+  "PreToolUse": [
+    { "matcher": "exec", "hooks": [ { "type": "command", "command": "bash \\"$DR/.senior-mode/adapters/devin-shim.sh\\" guard \\"$DH/session-tree-guard.sh\\" \\"$DH/pre-commit-audit.sh\\" \\"$DH/pre-push-checklist.sh\\" \\"$DH/exit-code-mask-guard.sh\\"", "timeout": 20 } ] }
+  ],
+  "PostToolUse": [
+    { "matcher": "write|edit|apply_patch", "hooks": [ { "type": "command", "command": "bash \\"$DH/post-edit-format.sh\\"", "timeout": 30 } ] }
+  ],
+  "Stop": [
+    { "hooks": [ { "type": "command", "command": "bash \\"$DH/senior-check-after.sh\\"", "timeout": 5 } ] }
+  ]
+}
+EOF
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       name=$(basename "$f" .md); globs=$(sm_rule_globs "$f")

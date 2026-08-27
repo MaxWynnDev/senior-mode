@@ -22,14 +22,20 @@ Claude Code hook JSON on stdout (`hookSpecificOutput.permissionDecision`
 `decision: block` + `reason`). Exit 0 always: a broken hook allows.
 
 That contract turned out to be the industry's de facto standard. As of
-August 2026 it is spoken natively (event names, `matcher`, `hooks[]`,
-`type: command`) by **Claude Code, Codex CLI, GitHub Copilot (CLI, cloud
-agent, VS Code), Factory Droid, Devin CLI, and Augment**.
-For those, the adapter only picks the file name and the repo-root
-expression. **Cursor** and **Gemini CLI** have their own event names and
-stdout shapes, so a shim (`adapters/shims/`) translates in both
-directions. **OpenCode** has no shell-hook config; its plugin API runs
-the same scripts from TypeScript.
+August 2026 the config format (event names, `matcher`, `hooks[]`,
+`type: command`) is spoken natively by **Claude Code, Codex CLI, GitHub
+Copilot (CLI, cloud agent, VS Code), Factory Droid, Devin CLI, and
+Augment**. The adapter picks the file name, the repo-root expression,
+and the agent's own tool vocabulary for the matchers: Factory has no
+`Bash` tool (shell commands are `Execute`, edits are
+`Create|Edit|ApplyPatch`), Devin uses `exec` and
+`write|edit|apply_patch`. **Devin** also reads a PreToolUse deny as a
+top-level `decision: "block"` rather than the nested
+`permissionDecision`, so its shell guards run through `devin-shim.sh`
+(one way, stdout only). **Cursor** and **Gemini CLI** have their own
+event names and stdout shapes, so a shim (`adapters/shims/`) translates
+in both directions. **OpenCode** has no shell-hook config; its plugin
+API runs the same scripts from TypeScript.
 
 The hooks resolve the repo root from, in order: `SENIOR_MODE_PROJECT_DIR`,
 `CLAUDE_PROJECT_DIR` (Cursor and Gemini export this as an alias),
@@ -50,7 +56,7 @@ behaviour is asked for in `AGENTS.md` rather than enforced.
 | Copilot | `AGENTS.md` + `.github/copilot-instructions.md` | native `.github/hooks/*.json` (PascalCase events) | native | native (`Stop`) | native | `.github/instructions` `applyTo` | `.github/agents/*.agent.md` | `.agents/skills` |
 | OpenCode | `AGENTS.md` (root, nested lazily) | plugin: `tool.execute.before` throws | system-prompt transform | not available | `tool.execute.after` | `instructions` glob (always loaded) | `.opencode/agents` | `.opencode/commands` + skills |
 | Factory Droid | `AGENTS.md` | native `.factory/hooks.json` | native | native | native | instruction | `.factory/droids` | `.factory/commands` + skills |
-| Devin CLI | `AGENTS.md` | native `.devin/hooks.v1.json` | native | native | native | `.devin/rules` (`glob` / `model_decision`) | instruction | `.agents/skills` |
+| Devin CLI | `AGENTS.md` | `.devin/hooks.v1.json`, denies via `devin-shim.sh` | native | native | native | `.devin/rules` (`glob` / `model_decision`) | instruction | `.agents/skills` |
 | Augment | `AGENTS.md` | native `.augment/settings.json` | native | native | native | `.augment/rules` (`agent_requested`) | instruction | `.augment/commands` + skills |
 | Windsurf, Kiro, Amp, Zed, Warp, Jules, Junie, Cline | `AGENTS.md` | not wired (see notes) | instruction | instruction | not wired | instruction | instruction | `.agents/skills` where read |
 | Aider | none by default | no | instruction (add `read: [AGENTS.md]` to `.aider.conf.yml`) | | | | | |
@@ -78,8 +84,8 @@ project docs at 32 KiB, and every agent pays for it on every turn.
 
 ## Verifying an adapter
 
-`core/hooks/test-checklist.sh` covers the hooks, both shims (Cursor and
-Gemini payloads in and out), the stack detector, and an install into a
-scratch repo. Run it after touching anything under `core/` or
-`adapters/`. The generated JSON is validated in CI with Node when it is
-available.
+`core/hooks/test-checklist.sh` covers the hooks, the shims (Cursor,
+Gemini and Devin payloads in and out), the factory and devin generators'
+matchers, the stack detector, and an install into a scratch repo. Run it
+after touching anything under `core/` or `adapters/`. The generated JSON
+is validated in CI with Node when it is available.
