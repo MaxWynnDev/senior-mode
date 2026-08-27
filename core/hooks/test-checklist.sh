@@ -164,7 +164,11 @@ wt_payload() { # $1 sid  $2 cwd  $3 cmd(optional)
   printf '{"session_id":"%s","cwd":"%s","tool_name":"Bash","tool_input":{"command":"%s"}}' "$1" "$2" "$esc"
 }
 wt_check() { # $1 name  $2 out  $3 needle  $4 want(yes|no)
-  local hay=${2,,} nee=${3,,} g
+  # tr, not ${v,,}: the ,, expansion is bash 4+ and macOS ships bash 3.2,
+  # where it is a bad substitution that skips the case without failing it.
+  local hay nee g
+  hay=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
+  nee=$(printf '%s' "$3" | tr '[:upper:]' '[:lower:]')
   if [[ "$hay" == *"$nee"* ]]; then g=yes; else g=no; fi
   if [ "$g" = "$4" ]; then ok "$1 -> $g"; else fail "$1 -> got=$g want=$4"; fi
 }

@@ -166,7 +166,8 @@ Plainly, so nobody has to find out the hard way:
 
 - **Run end to end here:** Claude Code 2.1.241 and Codex CLI 0.146.0
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
-  The harness (60 cases) runs on every push on Linux, macOS, and Windows.
+  The harness (63 cases, 65 where bun is installed) runs on every push on
+  Linux, macOS, and Windows.
 - **Validated against official docs and the harness, not inside the
   agent:** the Cursor and Gemini shims (payloads in both directions are
   tested against the real hook scripts), the Copilot, OpenCode, Factory,
