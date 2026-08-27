@@ -292,6 +292,14 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [[ "$out" == *'"permission":"allow"'* ]]; then ok "cursor shim: plain command -> permission allow"; else fail "cursor shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"s1"}' | bash "$CSHIM" session "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"additional_context"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "cursor shim: sessionStart carries the BEFORE checklist"; else fail "cursor shim: session context"; fi
+  out=$(printf '{"conversation_id":"cs1","status":"done","loop_count":0}' | bash "$CSHIM" stop "$HERE/senior-check-after.sh")
+  if [[ "$out" == *'"followup_message"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "cursor shim: first stop -> followup carries the AFTER checklist"; else fail "cursor shim: stop followup (got: $out)"; fi
+  # Fresh conversation id: no sentinel exists, so only the loop_count ->
+  # stop_hook_active mapping can produce the allow. Same-id would pass via
+  # the sentinel even without the mapping.
+  out=$(printf '{"conversation_id":"cs2","status":"done","loop_count":1}' | bash "$CSHIM" stop "$HERE/senior-check-after.sh")
+  if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "cursor shim: loop_count maps to stop_hook_active, follow-up stop passes"; else fail "cursor shim: stop backstop (got: $out)"; fi
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-cs1" "${TMPDIR:-/tmp}/claude-senior-stop-cs2"
   out=$(cd "$SREPO" && printf '{"session_id":"g1","hook_event_name":"BeforeTool","tool_name":"run_shell_command","cwd":"%s","tool_input":{"command":"git push origin main"}}' "$SREPO" | CLAUDE_PROJECT_DIR="$SREPO" bash "$GSHIM" BeforeTool "$PUSH_HOOK")
   if [[ "$out" == *'"decision":"deny"'* ]]; then ok "gemini shim: BeforeTool push without trailer -> decision deny"; else fail "gemini shim: deny (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"ls"}}' | bash "$GSHIM" BeforeTool "$PUSH_HOOK")
