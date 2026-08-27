@@ -22,7 +22,9 @@
 #   - ultracode-advisor.sh: a `.claude/` edit does not trip the auth
 #     signal; a payments path does
 #   - post-edit-format.sh: silent no-op without a formatter, honors
-#     CLAUDE_FORMAT_CMD, ignores non-edit tools, detects a local biome
+#     CLAUDE_FORMAT_CMD, ignores non-edit tools, detects a local biome,
+#     and speaks each adapter's edit-tool vocabulary (Factory Create,
+#     Augment path key, the Codex/Devin apply_patch envelope)
 #   - senior-check-after.sh Stop-hook backstop: blocks once per turn, and
 #     stop_hook_active forces allow so it can never run to the block cap
 #   - stacks/detect.sh verdicts and the --list picker
@@ -255,6 +257,26 @@ EOF
 chmod +x "$FREPO/node_modules/.bin/biome"
 fmt_payload Edit "$FREPO/a.ts" | CLAUDE_PROJECT_DIR="$FREPO" bash "$FMT_HOOK" >/dev/null
 if [ -f "$FREPO/biome-marker" ] && [[ "$(cat "$FREPO/biome-marker")" == *"format --write"* ]]; then ok "format: local biome auto-detected"; else fail "format: biome not detected"; fi
+
+# --- post-edit-format: adapter-native tool vocabulary -----------------------
+# Factory reports Create/Edit/ApplyPatch, Devin write/edit/apply_patch,
+# Augment save-file/str-replace-editor with the file under "path", Codex
+# apply_patch with the whole envelope in tool_input.command. A gate that
+# only knows Write|Edit is dead on all of them.
+rm -f "$FREPO/fmt-marker"
+fmt_payload Create "$FREPO/a.ts" | CLAUDE_PROJECT_DIR="$FREPO" CLAUDE_FORMAT_CMD="bash $FREPO/fake-fmt.sh" bash "$FMT_HOOK" >/dev/null
+if [ -f "$FREPO/fmt-marker" ]; then ok "format: Factory Create fires the formatter"; else fail "format: Factory Create ignored"; fi
+rm -f "$FREPO/fmt-marker"
+printf '{"session_id":"%s","hook_event_name":"PostToolUse","tool_name":"str-replace-editor","tool_input":{"path":"%s"}}' "$SESSION" "$FREPO/a.ts" \
+  | CLAUDE_PROJECT_DIR="$FREPO" CLAUDE_FORMAT_CMD="bash $FREPO/fake-fmt.sh" bash "$FMT_HOOK" >/dev/null
+if [ -f "$FREPO/fmt-marker" ]; then ok "format: Augment str-replace-editor with a path key fires"; else fail "format: Augment path key ignored"; fi
+rm -f "$FREPO/fmt-marker"
+printf '{"session_id":"%s","hook_event_name":"PostToolUse","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\\n*** Update File: a.ts\\n@@\\n+const x = 1\\n*** End Patch"}}' "$SESSION" \
+  | (cd "$FREPO" && CLAUDE_PROJECT_DIR="$FREPO" CLAUDE_FORMAT_CMD="bash $FREPO/fake-fmt.sh" bash "$FMT_HOOK" >/dev/null)
+if [ -f "$FREPO/fmt-marker" ] && [ "$(cat "$FREPO/fmt-marker")" = "a.ts" ]; then ok "format: apply_patch envelope yields the edited file"; else fail "format: apply_patch envelope not parsed"; fi
+rm -f "$FREPO/fmt-marker"
+fmt_payload Execute "$FREPO/a.ts" | CLAUDE_PROJECT_DIR="$FREPO" CLAUDE_FORMAT_CMD="bash $FREPO/fake-fmt.sh" bash "$FMT_HOOK" >/dev/null
+if [ ! -f "$FREPO/fmt-marker" ]; then ok "format: shell tools stay ignored"; else fail "format: fired on a shell tool"; fi
 
 # --- senior-check-after: Stop-hook loop backstop -----------------------
 STOP_HOOK="$HERE/senior-check-after.sh"
