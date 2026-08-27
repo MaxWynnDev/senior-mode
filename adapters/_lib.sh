@@ -77,28 +77,33 @@ sm_hook_cmd() {
 
 # The canonical event wiring, shared by every Claude-format agent.
 # Each line: <Event> <matcher-or-empty> <script> [args]
-sm_canonical_events() {
-  cat <<'EOF'
+# The matchers default to Claude Code's tool names; agents with their own
+# tool vocabulary pass theirs (Factory: Execute / Create|Edit|ApplyPatch,
+# Devin: exec / write|edit|apply_patch). Matchers must not contain spaces.
+sm_canonical_events() { # [shell-matcher] [edit-matcher]
+  local sm="${1:-Bash}" em="${2:-Write|Edit}"
+  cat <<EOF
 SessionStart      -        session-registry.sh register
 SessionEnd        -        session-registry.sh unregister
 UserPromptSubmit  -        session-registry.sh touch
 UserPromptSubmit  -        senior-check-before.sh
 UserPromptSubmit  -        ultracode-advisor.sh
-PreToolUse        Bash     session-tree-guard.sh
-PreToolUse        Bash     pre-commit-audit.sh
-PreToolUse        Bash     pre-push-checklist.sh
-PreToolUse        Bash     exit-code-mask-guard.sh
-PostToolUse       Write|Edit post-edit-format.sh
+PreToolUse        $sm     session-tree-guard.sh
+PreToolUse        $sm     pre-commit-audit.sh
+PreToolUse        $sm     pre-push-checklist.sh
+PreToolUse        $sm     exit-code-mask-guard.sh
+PostToolUse       $em post-edit-format.sh
 Stop              -        senior-check-after.sh
 EOF
 }
 
 # sm_hooks_json <projectdir-expr> [top-level:yes|no] [timeout-key] [timeout-scale]
+#               [command-key] [shell-matcher] [edit-matcher]
 # Emits the {"hooks": {...}} object (or the bare inner object when top-level=no,
 # for Factory/Devin whose file IS the inner object). timeout-key defaults to
 # "timeout" (seconds); Augment wants milliseconds (scale 1000).
 sm_hooks_json() {
-  local root="$1" top="${2:-yes}" tkey="${3:-timeout}" tscale="${4:-1}" ckey="${5:-command}"
+  local root="$1" top="${2:-yes}" tkey="${3:-timeout}" tscale="${4:-1}" ckey="${5:-command}" shellm="${6:-Bash}" editm="${7:-Write|Edit}"
   local ev prev_ev="" prev_m="" first_ev=yes first_h=yes
   if [ "$top" = yes ]; then printf '{\n  "hooks": {\n'; else printf '{\n'; fi
   local indent="    "; [ "$top" = no ] && indent="  "
@@ -119,7 +124,7 @@ sm_hooks_json() {
       groups+=("$event${SEP}$matcher${SEP}$entry")
       prev_ev=$event; prev_m=$matcher
     fi
-  done < <(sm_canonical_events)
+  done < <(sm_canonical_events "$shellm" "$editm")
   # emit, merging groups that share an event into one array
   local cur_ev="" g gev gm gentries
   for g in "${groups[@]}"; do

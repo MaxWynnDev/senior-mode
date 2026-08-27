@@ -26,7 +26,10 @@
 #   - senior-check-after.sh Stop-hook backstop: blocks once per turn, and
 #     stop_hook_active forces allow so it can never run to the block cap
 #   - stacks/detect.sh verdicts and the --list picker
-#   - the Cursor and Gemini shims (payload translation both ways)
+#   - the Cursor, Gemini and Devin shims (payload translation both ways;
+#     Devin: nested deny -> top-level decision block)
+#   - the family generators: factory and devin configs carry their agents'
+#     tool matchers, not Claude's
 #   - the OpenCode plugin under Bun: deny path, fail-open on a missing
 #     guard, BEFORE context (skipped where bun is absent)
 #   - install.sh dry run + real run into a scratch repo (kit source tree only)
@@ -312,6 +315,42 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [ "$out" = "{}" ]; then ok "gemini shim: plain command -> {}"; else fail "gemini shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeAgent","prompt":"hi"}' | bash "$GSHIM" BeforeAgent "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"hookEventName":"BeforeAgent"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: BeforeAgent carries the BEFORE checklist"; else fail "gemini shim: BeforeAgent context"; fi
+fi
+
+# --- devin shim: nested guard deny -> top-level decision block ---------------
+DSHIM="$HERE/../../adapters/shims/devin-shim.sh"; [ -f "$DSHIM" ] || DSHIM="$HERE/../adapters/devin-shim.sh"
+if [ -f "$DSHIM" ]; then
+  DREPO="$SCRATCH/devinshim"; rm -rf "$DREPO"; mkdir -p "$DREPO"; git -C "$DREPO" init -q
+  git -C "$DREPO" -c user.email=t@t.t -c user.name=t commit --allow-empty -m "no trailer here" -q
+  out=$(cd "$DREPO" && printf '{"session_id":"d1","hook_event_name":"PreToolUse","tool_name":"exec","tool_input":{"command":"git push origin main"}}' | CLAUDE_PROJECT_DIR="$DREPO" bash "$DSHIM" guard "$PUSH_HOOK")
+  if [[ "$out" == *'"decision":"block"'* ]] && [[ "$out" != *"permissionDecision"* ]]; then ok "devin shim: push without trailer -> top-level decision block"; else fail "devin shim: deny (got: $out)"; fi
+  out=$(cd "$DREPO" && printf '{"session_id":"d1","hook_event_name":"PreToolUse","tool_name":"exec","tool_input":{"command":"ls -la"}}' | CLAUDE_PROJECT_DIR="$DREPO" bash "$DSHIM" guard "$PUSH_HOOK")
+  if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "devin shim: plain command -> {}"; else fail "devin shim: allow (got: $out)"; fi
+fi
+
+# --- family generators: factory and devin speak their agents' tool names -----
+FGEN="$HERE/../../adapters/family/generate.sh"
+if [ -f "$FGEN" ]; then
+  FDREPO="$SCRATCH/family"; rm -rf "$FDREPO"; mkdir -p "$FDREPO"; git -C "$FDREPO" init -q
+  bash "$FGEN" factory "$FDREPO" >/dev/null 2>&1
+  bash "$FGEN" devin "$FDREPO" >/dev/null 2>&1
+  FJ=$(cat "$FDREPO/.factory/hooks.json" 2>/dev/null)
+  DJ=$(cat "$FDREPO/.devin/hooks.v1.json" 2>/dev/null)
+  case "$FJ" in *'"matcher": "Execute"'*) ok "factory: shell guards match Execute" ;; *) fail "factory: shell guards do not match Execute" ;; esac
+  case "$FJ" in *'"matcher": "Create|Edit|ApplyPatch"'*) ok "factory: formatter matches Create|Edit|ApplyPatch" ;; *) fail "factory: formatter matcher wrong" ;; esac
+  case "$FJ" in *'$FACTORY_PROJECT_DIR'*) ok "factory: hook paths resolve via FACTORY_PROJECT_DIR" ;; *) fail "factory: hook paths not absolute" ;; esac
+  case "$DJ" in *'"matcher": "exec"'*) ok "devin: shell guards match exec" ;; *) fail "devin: shell guards do not match exec" ;; esac
+  case "$DJ" in *'"matcher": "write|edit|apply_patch"'*) ok "devin: formatter matches write|edit|apply_patch" ;; *) fail "devin: formatter matcher wrong" ;; esac
+  case "$DJ" in *devin-shim.sh*) ok "devin: guards route through the deny shim" ;; *) fail "devin: PreToolUse does not use the shim" ;; esac
+  if command -v node >/dev/null 2>&1; then
+    if (cd "$FDREPO" && node -e "require('./.factory/hooks.json'); require('./.devin/hooks.v1.json')" >/dev/null 2>&1); then
+      ok "family: generated factory and devin JSON parses"
+    else
+      fail "family: generated JSON does not parse"
+    fi
+  else
+    ok "family: (node absent) JSON parse check skipped"
+  fi
 fi
 
 # --- opencode plugin (generated TS; executes only where bun exists) ----------
