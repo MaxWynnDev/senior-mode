@@ -9,6 +9,10 @@
 #   BeforeAgent      UserPromptSubmit    {"hookSpecificOutput":{"hookEventName":"BeforeAgent","additionalContext":...}}
 #   SessionStart     SessionStart        same additionalContext shape, hookEventName SessionStart
 #   SessionEnd       SessionEnd          {}
+#   AfterAgent       Stop                {"decision":"deny","reason":...} rejects the response and
+#                                        re-prompts with the reason (allow = {}). AfterAgent stdin
+#                                        carries stop_hook_active, which the Stop hook honors, so
+#                                        the deny fires once and the retry passes.
 #
 #   gemini-shim.sh <GeminiEvent> <hook.sh[:arg]>...
 #
@@ -64,10 +68,13 @@ while [ $# -gt 0 ]; do
         exit 0
       fi ;;
     AfterAgent)
-      # Gemini has no "block and re-prompt" for the after-check; surface it as a system message once.
+      # AfterAgent deny rejects the response and re-prompts the model with the
+      # reason, the same enforcement Stop gives Claude Code. The passthrough
+      # payload keeps stop_hook_active, so the hook's own backstop ends the
+      # loop after one deny.
       if printf '%s' "$OUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"block"'; then
         R=$(field_of "$OUT" reason)
-        printf '{"systemMessage":"%s"}\n' "$R"
+        printf '{"decision":"deny","reason":"%s"}\n' "$R"
         exit 0
       fi ;;
   esac
