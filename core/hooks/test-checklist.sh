@@ -27,6 +27,8 @@
 #     stop_hook_active forces allow so it can never run to the block cap
 #   - stacks/detect.sh verdicts and the --list picker
 #   - the Cursor and Gemini shims (payload translation both ways)
+#   - the Augment shim and generator: conversation_id -> session_id, the
+#     nested Stop shape, bare-path wrappers, no UserPromptSubmit
 #   - the OpenCode plugin under Bun: deny path, fail-open on a missing
 #     guard, BEFORE context (skipped where bun is absent)
 #   - install.sh dry run + real run into a scratch repo (kit source tree only)
@@ -312,6 +314,56 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   if [ "$out" = "{}" ]; then ok "gemini shim: plain command -> {}"; else fail "gemini shim: allow (got: $out)"; fi
   out=$(printf '{"session_id":"g1","hook_event_name":"BeforeAgent","prompt":"hi"}' | bash "$GSHIM" BeforeAgent "$HERE/senior-check-before.sh")
   if [[ "$out" == *'"hookEventName":"BeforeAgent"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "gemini shim: BeforeAgent carries the BEFORE checklist"; else fail "gemini shim: BeforeAgent context"; fi
+fi
+
+# --- augment shim: conversation_id mapping, nested Stop shape ----------------
+ASHIM="$HERE/../../adapters/shims/augment-shim.sh"; [ -f "$ASHIM" ] || ASHIM="$HERE/../adapters/augment-shim.sh"
+if [ -f "$ASHIM" ]; then
+  AREPO="$SCRATCH/augshim"; rm -rf "$AREPO"; mkdir -p "$AREPO"; git -C "$AREPO" init -q
+  git -C "$AREPO" -c user.email=t@t.t -c user.name=t commit --allow-empty -m "no trailer here" -q
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-augconv"
+  out=$(printf '{"hook_event_name":"Stop","conversation_id":"augconv","agent_stop_cause":"end_turn"}' | bash "$ASHIM" stop "$HERE/senior-check-after.sh")
+  if [[ "$out" == *'"hookSpecificOutput":{"hookEventName":"Stop","decision":"block"'* ]]; then ok "augment shim: first stop -> block nested in hookSpecificOutput"; else fail "augment shim: stop shape (got: $out)"; fi
+  # second stop passes via the sentinel, which only works if the shim mapped
+  # conversation_id to the session_id the sentinel is keyed by
+  out=$(printf '{"hook_event_name":"Stop","conversation_id":"augconv","agent_stop_cause":"end_turn"}' | bash "$ASHIM" stop "$HERE/senior-check-after.sh")
+  if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "augment shim: second stop -> {} (conversation_id keyed the sentinel)"; else fail "augment shim: stop backstop (got: $out)"; fi
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-augconv"
+  out=$(cd "$AREPO" && printf '{"hook_event_name":"PreToolUse","conversation_id":"augconv","tool_name":"launch-process","tool_input":{"command":"git push origin main"}}' | CLAUDE_PROJECT_DIR="$AREPO" bash "$ASHIM" guard "$PUSH_HOOK")
+  if [ "$(classify "$out")" = deny ]; then ok "augment shim: push without trailer -> nested deny passed through"; else fail "augment shim: deny (got: $out)"; fi
+  out=$(printf '{"hook_event_name":"SessionStart","conversation_id":"augconv"}' | bash "$ASHIM" session-start "$HERE/senior-check-before.sh")
+  if [[ "$out" == *'"hookEventName":"SessionStart"'* ]] && [[ "$out" == *"SENIOR CHECK"* ]]; then ok "augment shim: sessionStart carries the BEFORE checklist"; else fail "augment shim: session context"; fi
+fi
+
+# --- augment generator: bare-path wrappers, real matchers, no dead events ----
+AGEN="$HERE/../../adapters/family/generate.sh"
+if [ -f "$AGEN" ] && [ -f "$ASHIM" ]; then
+  AGREPO="$SCRATCH/auggen"; rm -rf "$AGREPO"; mkdir -p "$AGREPO"; git -C "$AGREPO" init -q
+  bash "$AGEN" augment "$AGREPO" >/dev/null 2>&1
+  AJ=$(cat "$AGREPO/.augment/settings.json" 2>/dev/null)
+  case "$AJ" in *'"command": ".augment/hooks/senior-guards.sh"'*) ok "augment: command is a bare wrapper path" ;; *) fail "augment: command is not a bare script path" ;; esac
+  case "$AJ" in *'"matcher": "launch-process"'*) ok "augment: shell guards match launch-process" ;; *) fail "augment: guards matcher wrong" ;; esac
+  case "$AJ" in *'"matcher": "save-file|str-replace-editor"'*) ok "augment: formatter matches save-file|str-replace-editor" ;; *) fail "augment: formatter matcher wrong" ;; esac
+  case "$AJ" in *UserPromptSubmit*) fail "augment: UserPromptSubmit wired but the event does not exist" ;; *) ok "augment: no UserPromptSubmit event wired" ;; esac
+  wfirst=""; [ -f "$AGREPO/.augment/hooks/senior-stop.sh" ] && IFS= read -r wfirst < "$AGREPO/.augment/hooks/senior-stop.sh"
+  if [ "$wfirst" = '#!/usr/bin/env bash' ]; then ok "augment: wrappers generated with a shebang"; else fail "augment: wrapper missing or without shebang"; fi
+  # end to end through the wrapper, the way Augment would run it
+  mkdir -p "$AGREPO/.senior-mode/adapters" "$AGREPO/.senior-mode/hooks"
+  cp "$ASHIM" "$AGREPO/.senior-mode/adapters/augment-shim.sh"
+  cp "$HERE/senior-check-after.sh" "$AGREPO/.senior-mode/hooks/"
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-augconv2"
+  out=$(printf '{"hook_event_name":"Stop","conversation_id":"augconv2"}' | AUGMENT_PROJECT_DIR="$AGREPO" bash "$AGREPO/.augment/hooks/senior-stop.sh")
+  if [[ "$out" == *'"decision":"block"'* ]]; then ok "augment: stop wrapper end to end -> nested block"; else fail "augment: wrapper end to end (got: $out)"; fi
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-augconv2"
+  if command -v node >/dev/null 2>&1; then
+    if (cd "$AGREPO" && node -e "require('./.augment/settings.json')" >/dev/null 2>&1); then
+      ok "augment: generated JSON parses"
+    else
+      fail "augment: generated JSON does not parse"
+    fi
+  else
+    ok "augment: (node absent) JSON parse check skipped"
+  fi
 fi
 
 # --- opencode plugin (generated TS; executes only where bun exists) ----------

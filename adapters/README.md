@@ -26,7 +26,13 @@ August 2026 it is spoken natively (event names, `matcher`, `hooks[]`,
 `type: command`) by **Claude Code, Codex CLI, GitHub Copilot (CLI, cloud
 agent, VS Code), Factory Droid, Devin CLI, and Augment**.
 For those, the adapter only picks the file name and the repo-root
-expression. **Cursor** and **Gemini CLI** have their own event names and
+expression. **Augment** is the furthest of them from the contract in the
+details: its `command` field is a bare script path with no arguments,
+its stdin names the session `conversation_id`, its event enum has no
+`UserPromptSubmit`, and its Stop output nests `decision`/`reason` inside
+`hookSpecificOutput`; the adapter generates thin wrappers in
+`.augment/hooks/` that run `augment-shim.sh`, which maps all of that.
+**Cursor** and **Gemini CLI** have their own event names and
 stdout shapes, so a shim (`adapters/shims/`) translates in both
 directions. **OpenCode** has no shell-hook config; its plugin API runs
 the same scripts from TypeScript.
@@ -51,7 +57,7 @@ behaviour is asked for in `AGENTS.md` rather than enforced.
 | OpenCode | `AGENTS.md` (root, nested lazily) | plugin: `tool.execute.before` throws | system-prompt transform | not available | `tool.execute.after` | `instructions` glob (always loaded) | `.opencode/agents` | `.opencode/commands` + skills |
 | Factory Droid | `AGENTS.md` | native `.factory/hooks.json` | native | native | native | instruction | `.factory/droids` | `.factory/commands` + skills |
 | Devin CLI | `AGENTS.md` | native `.devin/hooks.v1.json` | native | native | native | `.devin/rules` (`glob` / `model_decision`) | instruction | `.agents/skills` |
-| Augment | `AGENTS.md` | native `.augment/settings.json` | native | native | native | `.augment/rules` (`agent_requested`) | instruction | `.augment/commands` + skills |
+| Augment | `AGENTS.md` | `.augment/settings.json` → wrappers + `augment-shim.sh` (Auggie CLI only) | `sessionStart` context (once per session) | native (nested Stop shape via shim) | native (via shim) | `.augment/rules` (`agent_requested`) | instruction | `.augment/commands` + skills |
 | Windsurf, Kiro, Amp, Zed, Warp, Jules, Junie, Cline | `AGENTS.md` | not wired (see notes) | instruction | instruction | not wired | instruction | instruction | `.agents/skills` where read |
 | Aider | none by default | no | instruction (add `read: [AGENTS.md]` to `.aider.conf.yml`) | | | | | |
 
