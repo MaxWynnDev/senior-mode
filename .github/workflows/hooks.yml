@@ -44,6 +44,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Bun runs the OpenCode plugin cases in the harness. Ubuntu only: the
+      # generated plugin is identical on every platform, so one runner
+      # executing it is enough to catch API drift. Elsewhere those cases skip.
+      - name: Install bun (OpenCode plugin cases)
+        if: matrix.os == 'ubuntu-latest'
+        uses: oven-sh/setup-bun@v2
+
       # The harness commits inside throwaway repos; hosted runners have no
       # git identity configured.
       - name: Configure git identity
