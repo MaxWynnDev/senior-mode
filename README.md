@@ -84,8 +84,8 @@ CLAUDE.md                 "@AGENTS.md" plus Claude Code notes (Claude does not r
 ```
 
 The hook contract (`tool_input.command` in, `permissionDecision` out) is
-spoken natively by Claude Code, Codex, Copilot, Factory, Devin, Augment,
-and Junie; Cursor and Gemini get a 60-line shim; OpenCode gets a plugin
+spoken natively by Claude Code, Codex, Copilot, Factory, Devin, and
+Augment; Cursor and Gemini get a 60-line shim; OpenCode gets a plugin
 that runs the same scripts. `adapters/README.md` has the full capability
 matrix, including what each agent cannot do (Cursor cannot inject context
 on prompt submit, Gemini cannot block-and-re-prompt at turn end) and how

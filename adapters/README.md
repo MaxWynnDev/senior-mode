@@ -24,7 +24,7 @@ Claude Code hook JSON on stdout (`hookSpecificOutput.permissionDecision`
 That contract turned out to be the industry's de facto standard. As of
 August 2026 it is spoken natively (event names, `matcher`, `hooks[]`,
 `type: command`) by **Claude Code, Codex CLI, GitHub Copilot (CLI, cloud
-agent, VS Code), Factory Droid, Devin CLI, Augment, and JetBrains Junie**.
+agent, VS Code), Factory Droid, Devin CLI, and Augment**.
 For those, the adapter only picks the file name and the repo-root
 expression. **Cursor** and **Gemini CLI** have their own event names and
 stdout shapes, so a shim (`adapters/shims/`) translates in both
