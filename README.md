@@ -84,14 +84,14 @@ CLAUDE.md                 "@AGENTS.md" plus Claude Code notes (Claude does not r
 ```
 
 The hook contract (`tool_input.command` in, `permissionDecision` out) is
-spoken natively by Claude Code, Codex, Factory, Devin, and Augment;
-Copilot reads denies at the top level, so its guards pass through a
-small one-way shim; Cursor and Gemini get a 60-line shim; OpenCode gets
-a plugin that runs the same scripts. `adapters/README.md` has the full
-capability matrix, including what each agent cannot do (Cursor cannot
-inject context on prompt submit, Gemini cannot block-and-re-prompt at
-turn end, Copilot drops prompt-hook output) and how the kit degrades
-there.
+spoken natively by Claude Code, Codex, Factory, and Devin; Copilot reads
+denies at the top level, and Augment's hook command is a bare script
+path, so both run the same scripts through a small one-way shim (Augment
+via generated wrappers); Cursor and Gemini get a 60-line shim; OpenCode
+gets a plugin that runs the same scripts. `adapters/README.md` has the
+full capability matrix, including what each agent cannot do (Cursor
+cannot inject context on prompt submit, Copilot drops prompt-hook
+output, Augment has no per-prompt event) and how the kit degrades there.
 
 ## Why this is different
 
