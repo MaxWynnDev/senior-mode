@@ -24,7 +24,7 @@ cat <<EOF | sm_put "$SM_TARGET/.gemini/settings.json"
       { "hooks": [ { "name": "senior-mode-session", "type": "command", "command": "$S SessionStart \\"$H/session-registry.sh:register\\"", "timeout": 15000 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "name": "senior-mode-session-end", "type": "command", "command": "$S SessionEnd \\"$H/session-registry.sh:unregister\\"", "timeout": 10000 } ] }
+      { "hooks": [ { "name": "senior-mode-session-end", "type": "command", "command": "$S SessionEnd \\"$H/session-registry.sh:unregister\\"", "timeout": 3000 } ] }
     ],
     "BeforeAgent": [
       { "hooks": [ { "name": "senior-mode-before", "type": "command", "command": "$S BeforeAgent \\"$H/session-registry.sh:touch\\" \\"$H/senior-check-before.sh\\" \\"$H/ultracode-advisor.sh\\"", "timeout": 10000 } ] }

@@ -49,8 +49,10 @@ case "$AGENT" in
     # permissionDecision, so the shell guards run through devin-shim.sh.
     # Everything else speaks the canonical contract natively (nested
     # additionalContext on UserPromptSubmit/SessionStart, Stop
-    # decision/reason, stop_hook_active). DEVIN_PROJECT_DIR is the
-    # documented project root for hook commands.
+    # decision/reason). Devin's docs do not mention stop_hook_active, so
+    # the loop cap at turn end is the sentinel in senior-check-after.sh,
+    # not the flag. DEVIN_PROJECT_DIR is the documented project root for
+    # hook commands.
     DR='$DEVIN_PROJECT_DIR'
     DH="$DR/.senior-mode/hooks"
     cat <<EOF | sm_put "$SM_TARGET/.devin/hooks.v1.json"
@@ -59,7 +61,7 @@ case "$AGENT" in
     { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" register", "timeout": 15 } ] }
   ],
   "SessionEnd": [
-    { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" unregister", "timeout": 15 } ] }
+    { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" unregister", "timeout": 3 } ] }
   ],
   "UserPromptSubmit": [
     { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" touch", "timeout": 15 }, { "type": "command", "command": "bash \\"$DH/senior-check-before.sh\\"", "timeout": 10 }, { "type": "command", "command": "bash \\"$DH/ultracode-advisor.sh\\"", "timeout": 10 } ] }

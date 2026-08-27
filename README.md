@@ -168,13 +168,14 @@ Plainly, so nobody has to find out the hard way:
 
 - **Run end to end here:** Claude Code 2.1.241 and Codex CLI 0.146.0
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
-  The harness (63 cases, 65 where bun is installed) runs on every push on
+  The harness (98 cases, 100 where bun is installed) runs on every push on
   Linux, macOS, and Windows.
 - **Validated against official docs and the harness, not inside the
-  agent:** the Cursor and Gemini shims (payloads in both directions are
-  tested against the real hook scripts), the Copilot, OpenCode, Factory,
-  Devin, and Augment adapters (generated files parse; formats follow the
-  docs as of August 2026). If you run one of those, the first prompt
+  agent:** the Cursor, Gemini, Devin, Copilot, and Augment shims
+  (payloads are tested against the real hook scripts), and the Copilot,
+  OpenCode, Factory, Devin, and Augment adapters (generated files parse,
+  and the harness asserts each agent's matchers and command shapes;
+  formats follow the docs as of August 2026). If you run one of those, the first prompt
   tells you whether the check arrived; an issue with the payload you saw
   is the most useful contribution you can make.
 - **Instruction only:** every agent that reads `AGENTS.md` but has no

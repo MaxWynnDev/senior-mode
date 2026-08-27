@@ -36,7 +36,7 @@ cat <<EOF | sm_put "$SM_TARGET/.github/hooks/senior-mode.json"
       { "hooks": [ { "type": "command", "command": "bash \\"$H/session-registry.sh\\" register", "timeoutSec": 15 } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "bash \\"$H/session-registry.sh\\" unregister", "timeoutSec": 15 } ] }
+      { "hooks": [ { "type": "command", "command": "bash \\"$H/session-registry.sh\\" unregister", "timeoutSec": 3 } ] }
     ],
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "bash \\"$H/session-registry.sh\\" touch", "timeoutSec": 15 } ] }

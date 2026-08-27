@@ -529,6 +529,38 @@ if [ -f "$CXGEN" ]; then
   esac
 fi
 
+# --- every adapter: SessionEnd stays inside the canonical 3s budget ----------
+# Codex is the only agent documenting a cap (3s), but the budget is canonical:
+# unregister is one rm. Several adapters carry hand-rolled configs that bypass
+# the shared table in _lib.sh, so a clamp there does not reach them. This case
+# reads the generated files instead of trusting the generator.
+SEGEN="$HERE/../../install.sh"
+if [ -f "$SEGEN" ]; then
+  SEREPO="$SCRATCH/sessionend"; rm -rf "$SEREPO"; mkdir -p "$SEREPO"; git -C "$SEREPO" init -q
+  bash "$SEGEN" --agent all "$SEREPO" >/dev/null 2>&1
+  se_bad=""
+  # <file>:<budget>, in whatever unit that agent's config uses
+  for spec in ".claude/settings.json:3" ".codex/hooks.json:3" \
+              ".factory/hooks.json:3" ".devin/hooks.v1.json:3" \
+              ".github/hooks/senior-mode.json:3" ".gemini/settings.json:3000" \
+              ".augment/settings.json:3000"; do
+    f=${spec%:*}; want=${spec##*:}
+    [ -f "$SEREPO/$f" ] || continue
+    got=$(awk '{ s = s $0 }
+      END {
+        i = index(s, "\"SessionEnd\""); if (i == 0) exit;
+        s = substr(s, i);
+        if (match(s, /"timeout(Sec)?"[ \t]*:[ \t]*[0-9]+/)) {
+          t = substr(s, RSTART, RLENGTH); sub(/^.*:[ \t]*/, "", t); print t
+        }
+      }' "$SEREPO/$f")
+    [ -n "$got" ] || { se_bad="$se_bad $f=<none>"; continue; }
+    [ "$got" -le "$want" ] 2>/dev/null || se_bad="$se_bad $f=$got(max $want)"
+  done
+  if [ -z "$se_bad" ]; then ok "every adapter: SessionEnd within the canonical 3s budget"
+  else fail "SessionEnd over budget:$se_bad"; fi
+fi
+
 # --- install.sh (kit source tree only) ---------------------------------------
 INSTALLER="$HERE/../../install.sh"
 if [ -f "$INSTALLER" ]; then

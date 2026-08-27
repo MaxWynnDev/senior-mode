@@ -42,10 +42,11 @@ you did not fire.
 bash core/hooks/test-checklist.sh
 ```
 
-63 cases against scratch git repos (65 where bun is installed, which runs
+98 cases against scratch git repos (100 where bun is installed, which runs
 the OpenCode plugin cases): every deny and allow path, the worktree
-case, the stop-hook loop backstop, both shims in both directions, the
-detector's verdicts, and a real install. It must print `ALL CASES [ok]`
+case, the stop-hook loop backstop, all five shims, each adapter's
+generated matchers and command shapes, the detector's verdicts, and a
+real install. It must print `ALL CASES [ok]`
 before and after your change. CI runs it on Linux, macOS, and Windows.
 
 A hook change without a harness case is a change without a test. Add the
