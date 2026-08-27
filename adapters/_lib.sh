@@ -110,6 +110,10 @@ sm_hooks_json() {
     [ -z "$line" ] && continue
     set -- $line; event=$1; matcher=$2; script=$3; shift 3; args="$*"
     local t=10; case "$script" in post-edit-format.sh) t=30;; session-registry.sh) t=15;; pre-commit-audit.sh) t=15;; senior-check-after.sh) t=5;; esac
+    # Codex caps SessionEnd hooks at 3 seconds (default 1). Unregister is one
+    # rm, so the cap fits every adapter; one canonical value beats a per-agent
+    # override.
+    [ "$event" = "SessionEnd" ] && t=3
     t=$((t * tscale))
     local cmd; cmd=$(sm_json_escape "$(sm_hook_cmd "$root" "$script" $args)")
     local entry="{ \"type\": \"command\", \"$ckey\": \"$cmd\", \"$tkey\": $t }"

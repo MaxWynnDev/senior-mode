@@ -354,6 +354,22 @@ DRIVER
   fi
 fi
 
+# --- codex generator: SessionEnd stays inside Codex's documented 3s cap ------
+CXGEN="$HERE/../../adapters/codex/generate.sh"
+if [ -f "$CXGEN" ]; then
+  CXREPO="$SCRATCH/codexgen"; rm -rf "$CXREPO"; mkdir -p "$CXREPO"; git -C "$CXREPO" init -q
+  bash "$CXGEN" "$CXREPO" >/dev/null 2>&1
+  se_line=""; seen=no
+  while IFS= read -r l; do
+    [ "$seen" = yes ] && { se_line="$l"; break; }
+    case "$l" in *'"SessionEnd"'*) seen=yes ;; esac
+  done < "$CXREPO/.codex/hooks.json"
+  case "$se_line" in
+    *'"timeout": 3 }'*) ok "codex: SessionEnd timeout is 3 (documented max)" ;;
+    *) fail "codex: SessionEnd timeout over the documented 3s cap (line: $se_line)" ;;
+  esac
+fi
+
 # --- install.sh (kit source tree only) ---------------------------------------
 INSTALLER="$HERE/../../install.sh"
 if [ -f "$INSTALLER" ]; then
