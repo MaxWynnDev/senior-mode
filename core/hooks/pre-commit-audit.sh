@@ -54,6 +54,58 @@ else
   REPO="${SENIOR_MODE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-${GEMINI_PROJECT_DIR:-.}}}}"
 fi
 GIT_DIR_ARGS=(-C "$REPO")
+
+# The commit may do its own staging: `git add ... && git commit`, or
+# `git commit -a`. That is how agents usually commit, and the real index
+# holds none of those files when this hook runs, so reading it alone let
+# every such commit through unaudited. Build the index the commit will
+# see in a scratch copy and audit that. The real index is never touched.
+# Anything this can't replay with certainty (a variable, a command
+# substitution, `git add -p`) falls back to the real index.
+ADD_MODE=none
+ADD_PATHS=()
+if printf '%s' "$CMD" | grep -qE '(^[[:space:]]*|[;&|(][[:space:]]*)git[[:space:]]+commit([[:space:]]+[^;&|]*)?[[:space:]](-[a-zA-Z]*a[a-zA-Z]*|--all)([[:space:]]|$)'; then
+  ADD_MODE=update
+fi
+ADD_SEG=$(printf '%s' "$CMD" | sed -nE 's/.*(^|[;&|(][[:space:]]*)git[[:space:]]+add[[:space:]]+([^;&|]*).*/\2/p')
+if [ -n "$ADD_SEG" ]; then
+  [ "$ADD_MODE" = update ] || ADD_MODE=paths
+  set -f
+  for tok in $ADD_SEG; do
+    # The command is still JSON-escaped: a quoted path arrives as \"a.ts\".
+    tok=${tok#\\\"}; tok=${tok%\\\"}; tok=${tok#\'}; tok=${tok%\'}
+    case "$tok" in
+      -A|--all)            ADD_MODE=all ;;
+      -u|--update)         [ "$ADD_MODE" = all ] || ADD_MODE=update ;;
+      --|-f|--force|-v|--verbose) ;;
+      -*|*'$'*|*'`'*|*\\*) ADD_MODE=none; ADD_PATHS=(); break ;;
+      '') ;;
+      *)                   ADD_PATHS+=("$tok") ;;
+    esac
+  done
+  set +f
+  if [ "$ADD_MODE" = paths ] && [ "${#ADD_PATHS[@]}" -eq 0 ]; then ADD_MODE=none; fi
+fi
+if [ "$ADD_MODE" != none ]; then
+  GITDIR=$(git "${GIT_DIR_ARGS[@]}" rev-parse --absolute-git-dir 2>/dev/null || true)
+  if [ -n "$GITDIR" ]; then
+    SCRATCH_INDEX="$GITDIR/senior-audit-index.$$"
+    trap 'rm -f "$SCRATCH_INDEX" "$SCRATCH_INDEX.lock" 2>/dev/null' EXIT
+    [ -f "$GITDIR/index" ] && cp "$GITDIR/index" "$SCRATCH_INDEX" 2>/dev/null
+    replayed=no
+    case "$ADD_MODE" in
+      all)    GIT_INDEX_FILE="$SCRATCH_INDEX" git "${GIT_DIR_ARGS[@]}" add -A >/dev/null 2>&1 && replayed=yes ;;
+      update) GIT_INDEX_FILE="$SCRATCH_INDEX" git "${GIT_DIR_ARGS[@]}" add -u >/dev/null 2>&1 && replayed=yes
+              if [ "$replayed" = yes ] && [ "${#ADD_PATHS[@]}" -gt 0 ]; then
+                GIT_INDEX_FILE="$SCRATCH_INDEX" git add -- "${ADD_PATHS[@]}" >/dev/null 2>&1 || true
+              fi ;;
+      paths)  GIT_INDEX_FILE="$SCRATCH_INDEX" git add -- "${ADD_PATHS[@]}" >/dev/null 2>&1 && replayed=yes ;;
+    esac
+    # Every `git diff --staged` below now reads the scratch index.
+    [ "$replayed" = yes ] && export GIT_INDEX_FILE="$SCRATCH_INDEX"
+  fi
+fi
+
 STAGED=$(git "${GIT_DIR_ARGS[@]}" diff --staged --name-only 2>/dev/null || true)
 
 if [ -z "$STAGED" ]; then
@@ -61,7 +113,7 @@ if [ -z "$STAGED" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "additionalContext": "No staged changes detected. Stage files before committing (or this is a -a / pathspec commit; the audit only sees the index)."
+    "additionalContext": "No staged changes detected. Stage files before committing (or this commit stages in a way the audit could not replay; it then only sees the index)."
   }
 }
 EOF

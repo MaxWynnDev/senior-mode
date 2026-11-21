@@ -176,6 +176,33 @@ commit_with_staged "pre-commit: TODO(owner, date) allowed"    "src/b.ts"  "const
 commit_with_staged "pre-commit: console.log in prod path denied" "src/c.ts" "console.log('debug');" "deny"
 commit_with_staged "pre-commit: console.log in scripts/ allowed" "scripts/c.ts" "console.log('report');" "allow"
 
+# --- pre-commit: a commit that stages for itself is audited too -------------
+# `git add ... && git commit` and `git commit -a` are how agents usually
+# commit. The index is empty when the hook runs, so a gate that reads only
+# the index lets all of them through. The hook replays the staging into a
+# scratch index and must leave the real index and .git alone.
+# The marker is assembled here so this file never contains one. The gate
+# under test would deny a commit of its own harness otherwise.
+MARK="TO""DO"
+commit_chained() { # $1 name  $2 relpath  $3 content  $4 command  $5 want  [$6 yes = the file is tracked first]
+  local r="$SCRATCH/chainrepo" out got f
+  rm -rf "$r"; mkdir -p "$r/$(dirname "$2")"
+  git -C "$r" init -q
+  if [ "${6:-no}" = yes ]; then printf 'ok\n' > "$r/$2"; git -C "$r" add "$2"; fi
+  git -C "$r" -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q
+  printf '%s\n' "$3" > "$r/$2"
+  out=$(cd "$r" && payload "$4" | CLAUDE_PROJECT_DIR="$r" bash "$COMMIT_HOOK")
+  got=$(classify "$out")
+  if [ -n "$(git -C "$r" diff --staged --name-only)" ]; then got="$got+staged-in-the-real-index"; fi
+  for f in "$r"/.git/senior-audit-index.*; do [ -e "$f" ] && got="$got+scratch-index-left"; done
+  if [ "$got" = "$5" ]; then ok "$1 -> $got"; else fail "$1 -> got=$got want=$5"; echo "$out" | head -3; fi
+}
+commit_chained "pre-commit: git add -A && git commit is audited"         "src/a.ts" "const x = 1; // $MARK fix" 'git add -A && git commit -m "x"' "deny"
+commit_chained "pre-commit: git add <path> && git commit is audited"     "src/a.ts" "console.log('debug');"    'git add src/a.ts && git commit -m "x"' "deny"
+commit_chained "pre-commit: git commit -am is audited"                   "src/a.ts" "const x = 1; // $MARK fix"    'git commit -am "x"' "deny" yes
+commit_chained "pre-commit: a clean chained commit passes"               "src/a.ts" "export const x = 1;"      'git add -A && git commit -m "x"' "allow"
+commit_chained "pre-commit: an add it cannot replay falls back to the index" "src/a.ts" "const x = 1; // $MARK fix" 'git add $FILES && git commit -m "x"' "allow"
+
 # --- session-registry + session-tree-guard: concurrent-session safety ---
 REG_HOOK="$HERE/session-registry.sh"
 GUARD_HOOK="$HERE/session-tree-guard.sh"

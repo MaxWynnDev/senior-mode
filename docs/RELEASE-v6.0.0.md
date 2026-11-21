@@ -62,4 +62,8 @@ workflows, so the old file couldn't be run by name.
 The prompting rubric knows that newer models reject assistant prefill, a
 fixed `budget_tokens` and the sampling parameters.
 
-The harness has 144 cases, up from 98. `CHANGELOG.md` has the full list.
+The commit gate now audits a commit that stages for itself. `git add -A
+&& git commit` and `git commit -am` used to skip the TODO, `console.log`
+and 400-line checks, because the index is empty when the hook runs.
+
+The harness has 149 cases, up from 98. `CHANGELOG.md` has the full list.

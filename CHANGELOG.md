@@ -42,6 +42,12 @@ and checks the final answer for it.
   was skipped. The before-hook and every allow now clear it.
 - `session-registry.sh unregister` (SessionEnd) removes the session's
   state files from the temp dir.
+- `pre-commit-audit.sh` read only the index. `git add -A && git commit`
+  and `git commit -am` run with an empty index when the hook fires, so the
+  usual agent commit skipped the TODO, `console.log` and 400-line checks.
+  The hook now replays the staging into a scratch index and audits that.
+  The real index is never touched. A staging it can't replay for certain
+  (a variable, `git add -p`) falls back to the index.
 - `exit-code-mask-guard.sh` read any `|` after the watcher as a pipe on
   it. It denied the redirect recipe when the next command had a pipe
   (`gh run view --jq '.jobs[] | .name'`), and it denied `|| echo red`. It
@@ -92,12 +98,13 @@ and checks the final answer for it.
 
 ### Harness
 
-- 144 cases (146 with bun), up from 98. The 46 new ones cover the
+- 149 cases (151 with bun), up from 98. The 51 new ones cover the
   undone-work check, the 3-block cap, quiet turns, the push flag, the
   before-hook's notification handling, the session-end cleanup, the
   advisor's boundaries and reviewer routing, the Gemini mapping, the
-  installer's upgrade mode, the pipe guard's segment rule, and a check
-  that the starter's two hooks are byte-identical to core's. Run against the v5 hooks, 20 of them fail.
+  installer's upgrade mode, the pipe guard's segment rule, the commit
+  gate on a chained add, and a check that the starter's two hooks are
+  byte-identical to core's. Run against the v5 hooks, 20 of them fail.
 - The harness now runs in its own temp dir. The hooks keep per-session
   state files there, and a marker left by one run changed what the next
   run saw.
