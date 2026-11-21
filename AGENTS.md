@@ -74,7 +74,7 @@ install.sh       the non-clobbering installer
 ## Commands
 
 ```bash
-bash core/hooks/test-checklist.sh                  # the harness, 141 cases (~4 min on Windows)
+bash core/hooks/test-checklist.sh                  # the harness, 144 cases (~4 min on Windows)
 bash install.sh --dry-run --agent all /tmp/scratch # what an install would write
 bash install.sh --upgrade --dry-run /tmp/scratch   # what an upgrade would replace
 bash stacks/detect.sh --list                       # the stack picker cards

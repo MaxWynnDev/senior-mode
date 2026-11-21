@@ -235,6 +235,11 @@ run_case "$MASK_HOOK" "mask: piped gh run watch denied" "$NO_TRAILER" "gh run wa
 run_case "$MASK_HOOK" "mask: piped gh pr checks --watch denied" "$NO_TRAILER" "gh pr checks 42 --watch | head" "deny"
 run_case "$MASK_HOOK" "mask: redirected watcher passes" "$NO_TRAILER" "gh run watch 123 --exit-status > w.log 2>&1; echo WATCH_EXIT=\$?" "silent"
 run_case "$MASK_HOOK" "mask: unrelated pipe passes" "$NO_TRAILER" "git log --oneline | head -5" "silent"
+# only the watcher's own segment counts: a pipe in a later command, or an
+# || after the redirect, does not touch the watcher's exit code
+run_case "$MASK_HOOK" "mask: a pipe in a later command passes" "$NO_TRAILER" "gh run watch 123 --exit-status > w.log 2>&1; gh run view 123 --json jobs --jq '.jobs[] | .name'" "silent"
+run_case "$MASK_HOOK" "mask: || after a redirected watcher passes" "$NO_TRAILER" "gh run watch 123 --exit-status > w.log 2>&1 || echo red" "silent"
+run_case "$MASK_HOOK" "mask: a pipe before the ; is still denied" "$NO_TRAILER" "gh run watch 123 --exit-status 2>&1 | tee w.log; echo done" "deny"
 
 # --- ultracode-advisor: path signals ignore the .claude tree ---------------
 ULTRA_HOOK="$HERE/ultracode-advisor.sh"

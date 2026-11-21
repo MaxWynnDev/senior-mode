@@ -82,7 +82,9 @@ AFTER='[SENIOR CHECK | AFTER] Before this answer goes out:\n(1) Self-audit the d
 MSG=$(printf '%s' "$FLAT" | sed -nE 's/.*"last_assistant_message"[[:space:]]*:[[:space:]]*"((\\.|[^"\\])*)".*/\1/p')
 
 if [ -n "$MSG" ]; then
-  SEP=$'\001'              # stands in for a line break
+  # SEP stands in for a line break. It is printable on purpose: bash 3.2
+  # (macOS) uses the \001 byte internally and drops it from a regex.
+  SEP='%%'
   RSQ=$'\xe2\x80\x99'      # the curly apostrophe, raw
   # Lowercase, straighten apostrophes, turn JSON line breaks into SEP, then
   # drop fenced code, inline code and quoted text. What is left is the
@@ -100,7 +102,7 @@ if [ -n "$MSG" ]; then
   re_verb="${B}i ${NOT} (yet )?(tried|try|tested|test|looked at|look at|checked|check|verified|verify|built|build|measured|measure|run|ran)${E}"
   re_yet="${B}not done yet${E}|${B}not (yet )?(tried|tested|verified|looked at|checked|run) (with|on|in|against)${E}"
   re_left="${B}(left|leaving) (it |this |that |these |those )?for you${E}|${B}(left|leaving) [a-z ]{0,40}for (later|a follow-?up|next time|another (pass|session|day))${E}"
-  re_head="(^|${SEP})[#>*_ -]*(what'?s (left|open|missing|remaining)|what is (left|open|missing|remaining)|open items?|still open|left open|not done|not covered|remaining( work| items)?|follow-?ups?|future work|deferred( work| items)?|known gaps?)[*_ ]*:?[*_ ]*(${SEP}|\$)"
+  re_head="(^|${SEP})[-#>*_ ]*(what'?s (left|open|missing|remaining)|what is (left|open|missing|remaining)|open items?|still open|left open|not done|not covered|remaining( work| items)?|follow-?ups?|future work|deferred( work| items)?|known gaps?)[*_ ]*:?[*_ ]*(${SEP}|\$)"
 
   HIT=""
   for re in "$re_list" "$re_verb" "$re_yet" "$re_left" "$re_head"; do

@@ -42,6 +42,13 @@ and checks the final answer for it.
   was skipped. The before-hook and every allow now clear it.
 - `session-registry.sh unregister` (SessionEnd) removes the session's
   state files from the temp dir.
+- `exit-code-mask-guard.sh` read any `|` after the watcher as a pipe on
+  it. It denied the redirect recipe when the next command had a pipe
+  (`gh run view --jq '.jobs[] | .name'`), and it denied `|| echo red`. It
+  now looks at the watcher's own segment only.
+- The stop hook marks line breaks with a printable token. The first
+  push used the `\001` byte, which bash 3.2 on macOS drops from a regex,
+  and the "Open items" heading case failed there.
 - `senior-check-before.sh` and `ultracode-advisor.sh` stay silent on a
   background-task notification. Claude Code runs prompt hooks for those,
   and both were treating the notification as a prompt.
@@ -85,12 +92,12 @@ and checks the final answer for it.
 
 ### Harness
 
-- 141 cases (143 with bun), up from 98. The 43 new ones cover the
+- 144 cases (146 with bun), up from 98. The 46 new ones cover the
   undone-work check, the 3-block cap, quiet turns, the push flag, the
   before-hook's notification handling, the session-end cleanup, the
   advisor's boundaries and reviewer routing, the Gemini mapping, the
-  installer's upgrade mode, and a check that the starter's two hooks are
-  byte-identical to core's. Run against the v5 hooks, 20 of them fail.
+  installer's upgrade mode, the pipe guard's segment rule, and a check
+  that the starter's two hooks are byte-identical to core's. Run against the v5 hooks, 20 of them fail.
 - The harness now runs in its own temp dir. The hooks keep per-session
   state files there, and a marker left by one run changed what the next
   run saw.

@@ -34,8 +34,16 @@ case "$CMD" in
 esac
 [ -n "$WATCHER" ] || { printf '{}\n'; exit 0; }
 
-# Anything after the watcher that pipes its output masks the exit code.
+# A pipe on the watcher masks its exit code. Look at the watcher's own
+# shell segment only: it ends at the first ; && || or line break (\n in
+# the JSON payload). Without the cut, a pipe in a later command was read
+# as a pipe on the watcher, so the redirect recipe followed by
+# `gh run view --jq '.jobs[] | .name'` was denied, and so was `|| echo red`.
 TAIL_OF_CMD=${CMD#*"$WATCHER"}
+TAIL_OF_CMD=${TAIL_OF_CMD%%;*}
+TAIL_OF_CMD=${TAIL_OF_CMD%%&&*}
+TAIL_OF_CMD=${TAIL_OF_CMD%%||*}
+TAIL_OF_CMD=${TAIL_OF_CMD%%\\n*}
 case "$TAIL_OF_CMD" in
   *"|"*)
     cat <<'EOF'

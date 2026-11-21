@@ -62,4 +62,4 @@ workflows, so the old file couldn't be run by name.
 The prompting rubric knows that newer models reject assistant prefill, a
 fixed `budget_tokens` and the sampling parameters.
 
-The harness has 141 cases, up from 98. `CHANGELOG.md` has the full list.
+The harness has 144 cases, up from 98. `CHANGELOG.md` has the full list.

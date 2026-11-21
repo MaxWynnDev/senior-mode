@@ -183,8 +183,8 @@ Plainly, so nobody has to find out the hard way:
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
   The v6 stop hook ran in a live Claude Code 2.1.330 session: an answer
   ending in "I haven't tested it" came back once with the undone-work
-  block, and the corrected answer went through. The harness (141 cases,
-  143 where bun is installed) runs on every push on Linux, macOS, and
+  block, and the corrected answer went through. The harness (144 cases,
+  146 where bun is installed) runs on every push on Linux, macOS, and
   Windows.
 - **Validated against official docs and the harness, not inside the
   agent:** the Cursor, Gemini, Devin, Copilot, and Augment shims
