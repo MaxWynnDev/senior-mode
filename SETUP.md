@@ -6,7 +6,7 @@ tune it. Quick version: `START-HERE.md`.
 ## 1. Install
 
 ```bash
-bash install.sh [--agent <list|auto|all|none>] [--stack <name|auto|none>] [--dry-run] [--force] <repo>
+bash install.sh [--agent <list|auto|all|none>] [--stack <name|auto|none>] [--dry-run] [--upgrade] [--force] <repo>
 ```
 
 What lands where:
@@ -32,6 +32,16 @@ different is left alone and the new version goes beside it as
 `<file>.senior-mode`, listed under MERGE at the end. Nothing is deleted.
 `--force` overwrites.
 
+To take a new kit version, run `install.sh --upgrade <repo>`. It replaces
+the kit's own code where it differs: the hooks, the shims, the
+procedures, and the skills, commands and workflows generated from them.
+Each replaced file is saved under `.senior-mode/backup/<stamp>/` first.
+Your `AGENTS.md`, `CLAUDE.md`, doctrine docs, rules, reviewers, memory
+and agent settings still follow the rules above, so a changed one lands
+beside yours as `<file>.senior-mode`. If you had tuned a hook, copy that
+edit back from the backup. A plain re-run doesn't upgrade anything: it
+keeps every file that differs.
+
 `--agent auto` picks agents that have a config dir in the repo or a CLI
 on PATH (`claude`, `codex`, `agent`/`cursor-agent`, `gemini`, `copilot`,
 `opencode`, `droid`, `devin`, `auggie`). `--stack auto` runs the detector
@@ -52,16 +62,16 @@ map that to each agent (see `adapters/README.md`).
 
 | Hook | Event | What it does |
 |---|---|---|
-| `session-registry.sh` | SessionStart (`register`), prompt (`touch`), SessionEnd (`unregister`) | Registers a heartbeat for every live session, whichever agent, and tells each one who else is active on what tree, branch, and HEAD. Later sessions in a shared checkout are steered to a worktree. Warns when HEAD shares no ancestor with the mainline. Silent when alone. Mainline from origin's HEAD; override with `SENIOR_MODE_MAINLINE`. |
+| `session-registry.sh` | SessionStart (`register`), prompt (`touch`), SessionEnd (`unregister`) | Registers a heartbeat for every live session, whichever agent, and tells each one who else is active on what tree, branch, and HEAD. Later sessions in a shared checkout are steered to a worktree. Warns when HEAD shares no ancestor with the mainline. Silent when alone. Mainline from origin's HEAD; override with `SENIOR_MODE_MAINLINE`. At SessionEnd it also removes the senior-check hooks' state files for the session. |
 | `session-tree-guard.sh` | PreToolUse Bash | BLOCKS commit, push, merge, rebase from a shared checkout for a non-incumbent session. One-shot override: `SENIOR_MODE_ALLOW_SHARED_GIT=1`. |
-| `senior-check-before.sh` | prompt submit | Injects the BEFORE checklist (ambiguity, 100% version, evidence, never cite unread) at the decision moment. |
-| `ultracode-advisor.sh` | prompt submit | Nudges toward a multi-agent verification pass when the prompt or the working diff hits money, migrations, auth, PII, security, or a large refactor. Advisory. |
+| `senior-check-before.sh` | prompt submit | Injects the BEFORE checklist (ambiguity, 100% version, evidence, never cite unread, finish in this turn) at the decision moment. Silent on a background-task notification. |
+| `ultracode-advisor.sh` | prompt submit | Names the reviewer to run (`money-path-reviewer`, `tenant-isolation-reviewer`, `migration-reviewer`, or the pre-push fan-out) when the prompt or the working diff hits money, migrations, auth, PII, security, or a large refactor. Advisory. It never starts a workflow; that stays your call. |
 | `pre-commit-audit.sh` | PreToolUse Bash | DENIES a commit with a bare `TODO`/`FIXME`, a `console.log` in a prod path, or a new source file over 400 LOC without a `PRINCIPLES: max-lines-exception:` comment. Self-filters to git commit commands. |
 | `pre-push-checklist.sh` | PreToolUse Bash | DENIES a push unless HEAD carries the `Senior-Checklist:` trailer with all five keys graded. Validates the repo the push runs FROM. |
 | `exit-code-mask-guard.sh` | PreToolUse Bash | DENIES piping a CI watcher through `tail`/`head`/`grep` (the pipe's exit code replaces the run's). The deny message has the redirect recipe. |
 | `post-edit-format.sh` | PostToolUse Write/Edit | Formats the edited file with biome, prettier, ruff, black, gofmt, rustfmt, or deno fmt (auto-detected, project-local first), or `SENIOR_MODE_FORMAT_CMD`. |
-| `senior-check-after.sh` | Stop | Blocks the turn once with the AFTER checklist (corners cut? senior pushback? could the green have gone red?). Sentinel per session; `stop_hook_active` forces allow, so it can never loop. |
-| `senior-verify-counterfactual.sh` (optional) | Stop | Asks a small model whether the response's `[WITHOUT HOOKS]` section is honest. Needs `ANTHROPIC_API_KEY` and `node`. Not wired by default. |
+| `senior-check-after.sh` | Stop | Reads the final answer and blocks it when it hands back undone work ("what I didn't do", "I haven't tested", an "Open items" heading), twice at most per turn, push turns included. Blocks once per turn with the AFTER checklist (corners cut? senior pushback? could the green have gone red?) on a turn that ran a command or edited a file, and asks for the `[AFTER-AUDIT]` block. State per session; 3 blocks in one turn at most. |
+| `senior-verify-counterfactual.sh` (optional) | Stop | Asks a small model whether the `Without senior mode` line of the `[AFTER-AUDIT]` block names a real catch. Needs `ANTHROPIC_API_KEY` and `node`. Not wired by default. |
 | `ship-policy.sh` (optional) | prompt submit | One-line standing reminder that behaviour changes ship through the `ship` procedure. Not wired by default. |
 | `test-checklist.sh` | (harness) | Runs every case above against scratch repos, plus the shims, the detector, and an install. `bash .senior-mode/hooks/test-checklist.sh`. |
 
@@ -77,7 +87,8 @@ Per-agent notes:
   follow-up message, once per turn.
 - **Gemini CLI**: `context.fileName` makes it read `AGENTS.md`; guards on
   `BeforeTool` (`run_shell_command`); BEFORE via `BeforeAgent`; the AFTER
-  check surfaces as a system message (Gemini has no block-and-re-prompt).
+  check is an `AfterAgent` deny, which re-prompts once. The shim passes
+  `prompt_response` to the undone-work check.
 - **Copilot**: `.github/hooks/senior-mode.json` with PascalCase events;
   `preToolUse` is fail-closed on a non-zero exit, and the hooks always
   exit 0. Cloud honors the `bash` field only.
@@ -112,8 +123,11 @@ reviewer briefs as checklists inside `pre-push`.
 - High-stakes signals: `ultracode-advisor.sh`.
 - Session TTL: `SENIOR_MODE_SESSION_TTL_MIN` (default 45).
 - Formatter: `SENIOR_MODE_FORMAT_CMD`.
-- The AFTER check: delete the Stop event from your agent's wiring if the
-  extra round per turn is not worth it.
+- The AFTER check skips a turn with no command and no edit. Only shell
+  and edit tools count, so a turn that only called MCP tools is skipped
+  too. `SENIOR_MODE_AFTER_ALWAYS=1` runs it on every turn. Delete the Stop
+  event from your agent's wiring to drop it and the undone-work check.
+- The undone-work phrases: the `re_` patterns in `senior-check-after.sh`.
 - Rules scoping: the SETUP comment at the top of each rule shows the
   globs; the adapters derive `globs:` / `applyTo:` from it.
 

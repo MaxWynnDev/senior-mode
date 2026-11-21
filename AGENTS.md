@@ -18,10 +18,10 @@ engineer approve this diff, or call it a patch? Clear it unprompted.
    [BEFORE-AUDIT]
    - Diagnosis: <hypothesis + the evidence it rests on>
    - Missing evidence: <what would confirm it; if "none needed", justify>
-   - 100% version: <named>
-   - 80% gap: <what I would skip and why>
+   - 100% version: <named; this is what ships>
+   - Shortcut I won't take: <what an 80% pass would skip>
    - Senior would reject if: <specific failure mode>
-   - Action: <confirm-first | ship | ask>
+   - Action: <ship | ask | confirm-first>
    ```
 3. **Never cite an unread source.** If you cannot point at the tool call
    that opened a file, run, or URL, it does not go in the message.
@@ -37,7 +37,13 @@ engineer approve this diff, or call it a patch? Clear it unprompted.
   whether this run could have produced it.
 - Never weaken a check to get green. If the check is wrong, say so with
   evidence and stop; changing the oracle is a human decision.
-- State what you did NOT do as explicitly as what you did.
+- Finish the work in this turn. Don't end with a list of what you didn't
+  do or what's still open: do it before you answer. A decision that's
+  mine goes to me as one multiple-choice question, recommended option
+  first. Report a failed check as failed.
+- Close non-trivial work with the `[AFTER-AUDIT]` block from
+  `core/AGENTS.md`: what you covered and how you verified it, and what a
+  first pass would have shipped without.
 
 ## What this repo is
 
@@ -68,8 +74,9 @@ install.sh       the non-clobbering installer
 ## Commands
 
 ```bash
-bash core/hooks/test-checklist.sh                  # the harness, 98 cases (~3 min on Windows)
+bash core/hooks/test-checklist.sh                  # the harness, 141 cases (~4 min on Windows)
 bash install.sh --dry-run --agent all /tmp/scratch # what an install would write
+bash install.sh --upgrade --dry-run /tmp/scratch   # what an upgrade would replace
 bash stacks/detect.sh --list                       # the stack picker cards
 bash stacks/detect.sh <repo>                       # score a repo against the profiles
 python docs/make-gifs.py docs                      # re-render the README GIFs (needs Pillow)

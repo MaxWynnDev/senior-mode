@@ -18,6 +18,12 @@
 #                                  on a confident detection, otherwise leaves the
 #                                  pick to the kickoff (see stacks/README.md)
 #   --dry-run                      print what would happen; write nothing
+#   --upgrade                      take a new kit version: replace the kit's own
+#                                  code where it differs (hooks, shims,
+#                                  procedures, the generated skills, commands
+#                                  and workflows), saving each old copy under
+#                                  .senior-mode/backup/<stamp>/. Your files
+#                                  keep the rules below.
 #   --force                        overwrite files that exist and differ
 #   --list-stacks                  print the stack picker and exit
 #
@@ -27,7 +33,8 @@
 #   - A file that exists and differs is NOT touched: the new version is written
 #     beside it as <file>.senior-mode and listed under MERGE at the end. The
 #     kickoff prompt merges those with you.
-#   - Nothing is ever deleted.
+#   - Nothing is ever deleted. One exception: --upgrade removes a
+#     <file>.senior-mode sibling that is identical to what it just installed.
 #
 # What lands where:
 #   <target>/.senior-mode/        the source of truth: hooks, rules, reviewers,
@@ -54,8 +61,9 @@ while [ $# -gt 0 ]; do
     --stack=*) STACK_ARG="${1#*=}"; shift ;;
     --dry-run) SM_DRY=yes; shift ;;
     --force) SM_FORCE=yes; shift ;;
+    --upgrade) SM_UPGRADE=yes; shift ;;
     --list-stacks) bash "$KIT/stacks/detect.sh" --list; exit 0 ;;
-    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,52p' "$0"; exit 0 ;;
     -*) echo "install: unknown option $1" >&2; exit 1 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -63,7 +71,8 @@ done
 [ -n "$TARGET" ] || { echo "install: target directory required (see --help)" >&2; exit 1; }
 mkdir -p "$TARGET" 2>/dev/null || true
 SM_TARGET="$(cd "$TARGET" 2>/dev/null && pwd)" || { echo "install: cannot access $TARGET" >&2; exit 1; }
-export SM_KIT SM_DRY SM_FORCE SM_TARGET
+[ "$SM_UPGRADE" = yes ] && SM_BACKUP="$SM_TARGET/.senior-mode/backup/$(date +%Y%m%d-%H%M%S)"
+export SM_KIT SM_DRY SM_FORCE SM_UPGRADE SM_BACKUP SM_TARGET
 
 ALL_AGENTS="claude codex cursor gemini copilot opencode factory devin augment"
 
@@ -181,6 +190,10 @@ fi
 
 # ---- 7. summary ------------------------------------------------------------------
 echo
+if [ "$SM_UPGRADE" = yes ] && [ -n "$SM_BACKUP" ] && [ -d "$SM_BACKUP" ]; then
+  sm_say "upgraded. The files it replaced are in ${SM_BACKUP#$SM_TARGET/}/."
+  sm_say "      If you had tuned a hook (the LOC limit, the advisor's patterns), copy that edit back from there."
+fi
 sm_say "done. Next: open your agent in $SM_TARGET and paste .senior-mode/KICKOFF-PROMPT.md"
 sm_say "      (it verifies the hooks, picks or confirms the stack, fills the placeholders, and merges any .senior-mode files)."
 if [ -n "$(printf '%s' "$SM_MERGE_LIST" | tr -d '\n ')" ]; then

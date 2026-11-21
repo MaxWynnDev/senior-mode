@@ -1,36 +1,38 @@
 #!/usr/bin/env bash
-# UserPromptSubmit hook: the ultracode advisor (Claude Code hook contract).
+# UserPromptSubmit hook: the stakes advisor (Claude Code hook contract).
 #
-# Implements the "ultracode when necessary" half of the operating
-# posture documented in CLAUDE.md (## Operating posture). The "max
-# always" half lives in CLAUDE.md only: a per-turn token ceiling is a
-# user-input lever ("+<N>k") that a hook cannot reliably set, so it is
-# encoded as a standing instruction rather than injected here.
-#
-# This hook fires at prompt-arrival (same moment as senior-check-before)
-# and scans two signals for high-stakes surface:
-#   1. The user's prompt text (matched case-insensitively). The raw hook
+# Fires when a prompt arrives (same moment as senior-check-before) and
+# scans two signals for high-stakes surface:
+#   1. The user's prompt text, matched case-insensitively. The raw hook
 #      payload also carries metadata keys (session_id, transcript_path,
-#      cwd, hook_event_name) whose names/values WOULD collide with this
-#      vocabulary ("session_id" contains "session"; cwd may contain path
-#      words like "payments"). So we extract the prompt value and match
-#      only that.
-#   2. The current working + staged diff file paths, EXCLUDING the
-#      agent config trees (`.claude/`, `.senior-mode/`, ...): editing `session-registry.sh` is not auth work,
-#      and without the exclusion every hook edit tripped the "auth"
-#      signal.
-# On a match it injects an advisory nudge to prefer a multi-agent
-# Workflow (parallel finders + adversarial verification + synthesis)
-# over a single-context pass. On no match it emits an empty object and
-# stays silent. The point is calibration, not nagging: a flagged task
-# that is genuinely trivial may still proceed solo.
+#      cwd, hook_event_name) whose names and values collide with this
+#      vocabulary, so the prompt value is extracted and only that is
+#      matched.
+#   2. The file paths in the working and staged diff, minus the agent
+#      config trees (`.claude/`, `.senior-mode/`, ...). Editing
+#      `session-registry.sh` is not auth work.
+# On a match it names the reviewer that covers the surface (money, auth,
+# PII, migrations) and tells the agent to run it before the change ships.
+# On no match it prints an empty object.
 #
-# Matched categories are drawn from a fixed vocabulary, so interpolating
-# them into the JSON below carries no escaping risk.
+# It does not start a multi-agent workflow and does not tell the agent to.
+# Claude Code runs a workflow only when the user asks for one ("ultracode",
+# "use a workflow"), so the message says a workflow is the user's call.
+# The file keeps its old name so existing wiring keeps working.
 #
-# UNIVERSAL: the signal vocabulary below is a generic high-stakes set
-# (money/billing, auth/access, migrations/schema, security, PII,
-# large refactors). Tune the grep patterns to your project's hot spots.
+# The keyword patterns use explicit non-letter boundaries, not substrings.
+# The substring versions fired on "session" (auth), "author" (auth),
+# "className" (it contains "ssn"), "git checkout" (money), "open tests"
+# (it contains "pen tests") and "dependency injection" (security).
+#
+# A background-task notification is not a prompt from the user, so the
+# hook stays silent for those.
+#
+# Matched categories and reviewer names come from fixed lists, so
+# interpolating them into the JSON below carries no escaping risk.
+#
+# UNIVERSAL: the vocabulary below is a generic high-stakes set. Tune the
+# patterns to your project's hot spots.
 
 set -u
 
@@ -49,6 +51,9 @@ fi
 if [ -z "$PROMPT" ]; then
   PROMPT=$(printf '%s' "$INPUT" | sed -E 's/"(session_id|prompt_id|transcript_path|cwd|hook_event_name|permission_mode)"[[:space:]]*:[[:space:]]*"[^"]*"//g')
 fi
+case "$PROMPT" in
+  '<task-notification>'*|'\n<task-notification>'*) printf '{}\n'; exit 0 ;;
+esac
 LC_INPUT=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 
 # Changed file paths (working tree + staged), lowercased, minus the
@@ -68,12 +73,15 @@ printf '%s' "$LC_CHANGED" | grep -qE '(^|/)(migrations?|schema)(/|\.|-|_)|migrat
 printf '%s' "$LC_CHANGED" | grep -qE '(^|/)(auth|sessions?|permissions?|rbac|acl|tenancy)(/|\.|-|_)'                          && add_hit auth
 
 # --- Keyword signals on the prompt text --------------------------------
-printf '%s' "$LC_INPUT" | grep -qE 'payment|payout|billing|invoice|checkout|charge|refund|subscription|commission|ledger' && add_hit money
-printf '%s' "$LC_INPUT" | grep -qE 'migrat|alter table|schema change|drop column|drop table'                             && add_hit migration
-printf '%s' "$LC_INPUT" | grep -qE 'auth|login|session|permission|rbac|access control|multi-tenant|tenant isol'          && add_hit auth
-printf '%s' "$LC_INPUT" | grep -qE 'ssn|\bpii\b|personal data|encrypt|sensitive (data|attribute)|gdpr|hipaa'             && add_hit pii
-printf '%s' "$LC_INPUT" | grep -qE 'security review|security audit|pen.?test|\bvuln|exploit|injection'                   && add_hit audit
-printf '%s' "$LC_INPUT" | grep -qE 'cross-cutting|architecture|large refactor|rewrite the|migrate the'                  && add_hit refactor
+# B and E are a non-letter (or the edge of the text) on each side.
+B='(^|[^a-z])'
+E='([^a-z]|$)'
+printf '%s' "$LC_INPUT" | grep -qE "payment|payout|billing|invoice|refund|chargeback|subscription|commission|ledger|checkout (page|flow|session|form|cart)|${B}charg(e|es|ed|ing) (the |a |an |each |every |their )?(card|customer|client|user|account|merchant|fee)" && add_hit money
+printf '%s' "$LC_INPUT" | grep -qE 'migrat|alter table|schema change|drop column|drop table' && add_hit migration
+printf '%s' "$LC_INPUT" | grep -qE "${B}(auth|authn|authz|oauth|sso|rbac|acl)${E}|authenticat|authoriz|login|log in|sign-?in|permission|access control|multi-tenant|tenant isol|api key|session (token|cookie|store|secret|expiry|fixation|hijack)" && add_hit auth
+printf '%s' "$LC_INPUT" | grep -qE "${B}(ssn|pii|gdpr|hipaa)${E}|personal data|encrypt|sensitive (data|attribute)" && add_hit pii
+printf '%s' "$LC_INPUT" | grep -qE "security review|security audit|${B}pen.?test|${B}vuln|exploit|(sql|prompt|command|code|html|script) injection|${B}(xss|csrf|ssrf)${E}" && add_hit audit
+printf '%s' "$LC_INPUT" | grep -qE 'cross-cutting|large refactor|big refactor|re-?architect|rewrite the (whole|entire|service|module|app|backend|frontend)|migrate the (whole|entire|codebase|app|service)' && add_hit refactor
 
 if [ -z "$HITS" ]; then
   printf '{}\n'
@@ -82,11 +90,24 @@ fi
 
 HITS_TRIM=$(printf '%s' "$HITS" | sed -E 's/^ +//')
 
+# Which review covers each category. A broad audit or a large refactor has
+# no single reviewer, so those get the pre-push fan-out.
+REVIEWS=""
+add_review() { case ", $REVIEWS, " in *", $1, "*) ;; *) REVIEWS="${REVIEWS:+$REVIEWS, }$1" ;; esac; }
+for h in $HITS_TRIM; do
+  case "$h" in
+    money)     add_review money-path-reviewer ;;
+    migration) add_review migration-reviewer ;;
+    auth|pii)  add_review tenant-isolation-reviewer ;;
+    *)         add_review "the pre-push fan-out" ;;
+  esac
+done
+
 cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[ULTRACODE ADVISOR] This turn touches high-stakes surface (matched: ${HITS_TRIM}). Per CLAUDE.md operating posture this is an 'ultracode when necessary' trigger: prefer a multi-agent Workflow (parallel finders + adversarial verification + synthesis) over a single-context pass, and do not hold tokens back. Advisory, not a mandate: if on reflection the task is genuinely trivial or read-only, proceed solo and say why in one line."
+    "additionalContext": "[ULTRACODE ADVISOR] This turn touches high-stakes surface (matched: ${HITS_TRIM}). Before any of it ships, run the matching review on the diff: ${REVIEWS}. Use the reviewer subagents where the agent has them, or work through the senior-mode reviewer briefs as checklists where it does not. A multi-agent workflow is the user's call: start one only if they asked for it (ultracode, use a workflow), otherwise offer it in one line. Advisory: skip this for a question or a read-only task."
   }
 }
 EOF

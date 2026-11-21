@@ -18,7 +18,7 @@ Any stack; a fresh repo or one that is already set up. See "What is
 verified" below before you trust a claim.
 
 [![hooks](https://github.com/maxwynndev/senior-mode/actions/workflows/hooks.yml/badge.svg)](https://github.com/maxwynndev/senior-mode/actions/workflows/hooks.yml)
-![Claude Code](https://img.shields.io/badge/tested%20with-Claude%20Code%202.1.241-blue)
+![Claude Code](https://img.shields.io/badge/tested%20with-Claude%20Code%202.1.330-blue)
 ![Codex CLI](https://img.shields.io/badge/tested%20with-Codex%20CLI%200.146.0-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -62,6 +62,7 @@ bash senior-mode/install.sh --dry-run /path/to/your-repo      # see what would h
 bash senior-mode/install.sh /path/to/your-repo                # install for the agents it finds; stack detected from manifests
 bash senior-mode/install.sh --agent claude,cursor --stack python-fastapi-postgres /path/to/your-repo
 bash senior-mode/install.sh --list-stacks                     # the stack picker
+bash senior-mode/install.sh --upgrade /path/to/your-repo      # take a new kit version; your AGENTS.md, rules and docs are kept
 ```
 
 Then open your agent in the repo and paste `.senior-mode/KICKOFF-PROMPT.md`.
@@ -105,8 +106,18 @@ A prompt-submit hook injects the senior checklist as each prompt arrives
 (is this ambiguous? what is the 100% version? what evidence confirms the
 diagnosis?). A stop hook blocks the response once per turn with the
 after-checklist (did you cut a corner? would a senior push back? could
-your green have gone red?). The agent fixes it before you see it. The
-hooks are fail-open and can never loop.
+your green have gone red?), on any turn that ran a command or edited a
+file. The agent fixes it before you see it. The hooks are fail-open, and
+the stop hook blocks 3 times in one turn at most.
+
+**The answer ends with what got done.** The same stop hook reads the
+final answer. If it hands you a "what I didn't do" list, an "I haven't
+tested" or an "Open items" heading, the hook sends it back with one
+instruction: do it now. A decision that's yours reaches you as a
+multiple-choice question, and a step only you can take reaches you as
+exact instructions. Finished work closes with an `[AFTER-AUDIT]` block:
+what the turn covered and how it was verified, and what the checks
+caught that a first pass would have shipped without.
 
 **A green check that cannot fail proves nothing.** Section 19 of
 `ENGINEERING-PRINCIPLES.md` is a catalogue of the ways a review lies to
@@ -144,7 +155,8 @@ Node API, FastAPI, Django, Rails, Go, Rust), each with real commands in
 
 **Briefing enforcement is calibrated, not nagging.** A question passes
 straight through. A vague build prompt ("make the dashboard better")
-stops once, names the missing elements, offers a best guess, and waits.
+stops once and asks for the missing pieces as one multiple-choice
+question, best guess first.
 A complete brief runs to its stop condition without check-ins.
 
 ![A question passes through; a vague build prompt stops once with a best guess; a complete brief runs to done](docs/prompting.gif)
@@ -157,8 +169,9 @@ and Windows on every push. Nobody tests their hooks. These are tested.
 
 **Evidence before code, visibly.** Before a non-trivial edit, the agent
 leads with a `[BEFORE-AUDIT]` block: diagnosis and the evidence it rests
-on, what is missing, the 100% version, the 80% gap, what a senior would
-reject. A post-hoc confession is not an audit.
+on, what is missing, the 100% version, the shortcut it won't take, what
+a senior would reject. It comes before the edit, where you can still
+stop it.
 
 ---
 
@@ -168,8 +181,11 @@ Plainly, so nobody has to find out the hard way:
 
 - **Run end to end here:** Claude Code 2.1.241 and Codex CLI 0.146.0
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
-  The harness (98 cases, 100 where bun is installed) runs on every push on
-  Linux, macOS, and Windows.
+  The v6 stop hook ran in a live Claude Code 2.1.330 session: an answer
+  ending in "I haven't tested it" came back once with the undone-work
+  block, and the corrected answer went through. The harness (141 cases,
+  143 where bun is installed) runs on every push on Linux, macOS, and
+  Windows.
 - **Validated against official docs and the harness, not inside the
   agent:** the Cursor, Gemini, Devin, Copilot, and Augment shims
   (payloads are tested against the real hook scripts), and the Copilot,
@@ -178,6 +194,13 @@ Plainly, so nobody has to find out the hard way:
   formats follow the docs as of August 2026). If you run one of those, the first prompt
   tells you whether the check arrived; an issue with the payload you saw
   is the most useful contribution you can make.
+- **The undone-work check needs the final answer in the hook payload.**
+  Claude Code documents `last_assistant_message` on its Stop event, the
+  Codex CLI 0.146.0 binary carries the same field name, and Gemini sends
+  `prompt_response`, which the shim maps. Cursor's `stop` event has no
+  answer text, so the check is skipped there. I haven't confirmed the
+  field for Copilot, Factory, Devin or Augment; an agent that doesn't
+  send it skips the check and keeps the rest.
 - **Instruction only:** every agent that reads `AGENTS.md` but has no
   hook contract this kit can verify. There the checks are asked for, not
   enforced.
@@ -230,9 +253,10 @@ these is a file or a line you can delete.
 - **The push gate wants a commit trailer.** It forces a 10-second
   self-check before the one irreversible action. Remove the hook if you
   hate it.
-- **The after-check costs one extra short model round per turn** where
-  the agent supports it. Delete that event from the generated wiring if
-  it is not worth it to you.
+- **The after-check costs one extra model round** on every turn that
+  ran a command or edited a file, where the agent supports it. A turn
+  that only answered a question skips it. Delete that event from the
+  generated wiring if it is not worth it to you.
 - **400 lines per new file.** Enforced at commit. Raise the number in
   `pre-commit-audit.sh`, or add the exception comment.
 - **Thoroughness over token thrift.** The doctrine says spend what the

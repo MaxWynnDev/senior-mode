@@ -20,7 +20,17 @@
 #   - exit-code-mask-guard.sh: piped CI watchers are denied, plain ones
 #     and unrelated pipes pass
 #   - ultracode-advisor.sh: a `.claude/` edit does not trip the auth
-#     signal; a payments path does
+#     signal; a payments path does; keyword boundaries ("session",
+#     "author", "className", "git checkout" stay quiet); a hit names its
+#     reviewer; a task notification is ignored
+#   - senior-check-after.sh undone-work check: a final answer that hands
+#     back work is blocked, twice at most per turn and on push turns too;
+#     quoted and code-span phrases are not hits; a turn with no shell call
+#     and no edit skips the self-audit; the push flag does not outlive its
+#     turn
+#   - senior-check-before.sh: a prompt resets the turn state, a task
+#     notification does not
+#   - the starter's two senior-check hooks are byte-identical to core's
 #   - post-edit-format.sh: silent no-op without a formatter, honors
 #     CLAUDE_FORMAT_CMD, ignores non-edit tools, detects a local biome,
 #     and speaks each adapter's edit-tool vocabulary (Factory Create,
@@ -50,6 +60,12 @@ export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=fals
 PUSH_HOOK="$HERE/pre-push-checklist.sh"
 COMMIT_HOOK="$HERE/pre-commit-audit.sh"
 SCRATCH=$(mktemp -d)
+# The hooks keep per-session state (stop sentinels, turn markers) in the
+# temp dir. Give this run its own. A marker left behind by an earlier run
+# changes what the next one sees: a leftover tools marker made a first
+# stop look like a quiet turn.
+export TMPDIR="$SCRATCH/tmp"
+mkdir -p "$TMPDIR"
 SESSION="test-checklist-session"
 FAILS=0
 trap 'rm -rf "$SCRATCH"; rm -f "${TMPDIR:-/tmp}/claude-push-done-$SESSION"' EXIT
@@ -301,6 +317,161 @@ rm -f "$STOP_SENT" 2>/dev/null   # simulate a fresh / failed sentinel (worst cas
 sc_check "stop: stop_hook_active forces allow (no runaway)" "$(stop_payload true | bash "$STOP_HOOK")" no
 rm -f "$STOP_SENT" "${TMPDIR:-/tmp}/claude-push-done-$SS" 2>/dev/null
 
+# --- senior-check-after: undone work, quiet turns, the push flag ------------
+# The Stop payload carries the final answer as last_assistant_message. An
+# answer that hands back undone work is blocked (twice at most per turn),
+# push turns included. A turn with no shell call and no edit skips the
+# self-audit, but only once a tool hook has proved it is wired.
+BEFORE_HOOK="$HERE/senior-check-before.sh"
+TD="${TMPDIR:-/tmp}"
+US="undone-test-session"
+turn_reset() { rm -f "$TD/claude-senior-stop-$1" "$TD/claude-senior-undone-$1" "$TD/claude-senior-worked-$1" "$TD/claude-senior-tools-$1" "$TD/claude-push-done-$1" 2>/dev/null; }
+answer() { # $1 active(true|false)  $2 final answer  [$3 session]
+  local m=$2; m=${m//\\/\\\\}; m=${m//\"/\\\"}; m=${m//$'\n'/\\n}
+  printf '{"session_id":"%s","hook_event_name":"Stop","stop_hook_active":%s,"last_assistant_message":"%s"}' "${3:-$US}" "$1" "$m"
+}
+stop_kind() { # block type of a Stop hook's output
+  case "$1" in
+    *'UNDONE WORK'*'SENIOR CHECK | AFTER'*) echo undone+after ;;
+    *'UNDONE WORK'*)                        echo undone ;;
+    *'SENIOR CHECK | AFTER'*)               echo after ;;
+    '')                                     echo allow ;;
+    *)                                      echo unknown ;;
+  esac
+}
+uw_check() { # $1 name  $2 want  $3 hook output
+  local g; g=$(stop_kind "$3")
+  if [ "$g" = "$2" ]; then ok "$1 -> $g"; else fail "$1 -> got=$g want=$2"; fi
+}
+UNDONE_LIST=$'It is live.\n\n**What I didn\'t do**\n- tried the new scopes with a real key'
+
+turn_reset "$US"
+uw_check "undone: a 'what I didn't do' list is blocked, self-audit folded in" undone+after "$(answer false "$UNDONE_LIST" | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: 'I haven't tested' is blocked" undone+after "$(answer false "Shipped. I haven't tested it against a real key." | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: an 'Open items' heading is blocked" undone+after "$(answer false $'Done.\n\n## Open items\n- wire the retry' | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: finished work gets the self-audit only" after "$(answer false "Fixed the parser and added a regression test. 14 of 14 pass." | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: a failed check reported as failed is not undone work" after "$(answer false "CI is red: the split test fails with expected 100, got 99." | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: the phrase inside a code span is not a hit" after "$(answer false 'The old hook asked for a `what I did not do` list.' | bash "$STOP_HOOK")"
+turn_reset "$US"
+uw_check "undone: the phrase inside quotes is not a hit" after "$(answer false 'The rule said "I haven'"'"'t tested" was an acceptable ending.' | bash "$STOP_HOOK")"
+
+# the cap: the self-audit, then two undone blocks, then allow
+turn_reset "$US"
+uw_check "undone cap: stop 1 is the self-audit" after "$(answer false "Fixed it." | bash "$STOP_HOOK")"
+uw_check "undone cap: stop 2 (active) blocks the revised answer" undone "$(answer true "Fixed it. I have not tested the retry." | bash "$STOP_HOOK")"
+uw_check "undone cap: stop 3 (active) blocks once more" undone "$(answer true "Fixed it. I have not tested the retry." | bash "$STOP_HOOK")"
+uw_check "undone cap: stop 4 allows, 3 blocks is the most a turn gets" allow "$(answer true "Fixed it. I have not tested the retry." | bash "$STOP_HOOK")"
+if [ ! -e "$TD/claude-senior-stop-$US" ] && [ ! -e "$TD/claude-senior-undone-$US" ]; then ok "undone cap: the allow cleared the turn state"; else fail "undone cap: turn state survived the allow"; fi
+
+# no state from earlier in the session: nothing proves the count would stick
+turn_reset "$US"
+uw_check "undone: stop_hook_active with no session state allows (no runaway)" allow "$(answer true "I have not tested the retry." | bash "$STOP_HOOK")"
+
+# push turns: the self-audit stands down, the undone check does not
+turn_reset "$US"; touch "$TD/claude-push-done-$US"
+uw_check "undone: a push turn is still checked" undone "$(answer false "Pushed. I have not looked at the dialog." | bash "$STOP_HOOK")"
+uw_check "undone: the push turn's corrected answer passes" allow "$(answer true "Pushed, and the dialog renders." | bash "$STOP_HOOK")"
+
+# the push flag must not outlive its turn. Before this fix, a push made
+# after the self-audit block left the flag behind and the next turn's
+# self-audit was skipped.
+turn_reset "$US"
+answer false "Fixed it." | bash "$STOP_HOOK" >/dev/null
+touch "$TD/claude-push-done-$US"
+answer true "Fixed and pushed." | bash "$STOP_HOOK" >/dev/null
+printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit","prompt":"next task"}' "$US" | bash "$BEFORE_HOOK" >/dev/null
+uw_check "push flag: a push after the self-audit does not skip the next turn's" after "$(answer false "Did the next task." | bash "$STOP_HOOK")"
+
+# quiet turns
+turn_reset "$US"; touch "$TD/claude-senior-tools-$US"
+uw_check "quiet turn: no shell call, no edit -> no self-audit" allow "$(answer false "The parser lives in src/parse.ts." | bash "$STOP_HOOK")"
+turn_reset "$US"; touch "$TD/claude-senior-tools-$US"
+uw_check "quiet turn: SENIOR_MODE_AFTER_ALWAYS=1 keeps the self-audit" after "$(answer false "The parser lives in src/parse.ts." | SENIOR_MODE_AFTER_ALWAYS=1 bash "$STOP_HOOK")"
+turn_reset "$US"; touch "$TD/claude-senior-tools-$US"
+uw_check "quiet turn: undone work is still blocked" undone+after "$(answer false "I have not checked the logs." | bash "$STOP_HOOK")"
+
+# the markers come from the real tool hooks, not from this harness
+turn_reset "$US"
+printf '{"session_id":"%s","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls -la"}}' "$US" | bash "$PUSH_HOOK" >/dev/null
+if [ -e "$TD/claude-senior-tools-$US" ] && [ -e "$TD/claude-senior-worked-$US" ]; then ok "markers: a shell call marks the turn as worked"; else fail "markers: pre-push hook did not write the turn markers"; fi
+uw_check "markers: a turn that ran a command gets the self-audit" after "$(answer false "Listed the files." | bash "$STOP_HOOK")"
+turn_reset "$US"
+printf '{"session_id":"%s","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"%s/nope.txt"}}' "$US" "$SCRATCH" | CLAUDE_PROJECT_DIR="$SCRATCH" bash "$HERE/post-edit-format.sh" >/dev/null
+if [ -e "$TD/claude-senior-worked-$US" ]; then ok "markers: an edit marks the turn as worked"; else fail "markers: post-edit hook did not write the turn marker"; fi
+
+# SessionEnd removes the session's state files, in a repo or not
+touch "$TD/claude-senior-stop-$US" "$TD/claude-senior-undone-$US" "$TD/claude-senior-worked-$US" "$TD/claude-senior-tools-$US" "$TD/claude-push-done-$US"
+printf '{"session_id":"%s","hook_event_name":"SessionEnd","cwd":"%s"}' "$US" "$SCRATCH" | bash "$REG_HOOK" unregister >/dev/null
+left=""; for f in stop undone worked tools; do [ -e "$TD/claude-senior-$f-$US" ] && left="$left $f"; done; [ -e "$TD/claude-push-done-$US" ] && left="$left push"
+if [ -z "$left" ]; then ok "markers: SessionEnd removes the session's state files"; else fail "markers: SessionEnd left:$left"; fi
+
+# the before hook: a real prompt resets the turn, a task notification does not
+touch "$TD/claude-senior-stop-$US" "$TD/claude-senior-undone-$US" "$TD/claude-senior-worked-$US" "$TD/claude-push-done-$US" "$TD/claude-senior-tools-$US"
+out=$(printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit","prompt":"fix the parser"}' "$US" | bash "$BEFORE_HOOK")
+if [[ "$out" == *"SENIOR CHECK | BEFORE"* ]] && [ ! -e "$TD/claude-senior-worked-$US" ] && [ ! -e "$TD/claude-push-done-$US" ] && [ ! -e "$TD/claude-senior-undone-$US" ] && [ -e "$TD/claude-senior-tools-$US" ]; then
+  ok "before: a prompt gets the checklist and resets the turn state"
+else
+  fail "before: prompt did not reset the turn state (got: ${out:0:80})"
+fi
+touch "$TD/claude-senior-worked-$US"
+out=$(printf '{"session_id":"%s","hook_event_name":"UserPromptSubmit","prompt":"<task-notification>\\n<task-id>a1</task-id>\\n<status>completed</status>"}' "$US" | bash "$BEFORE_HOOK")
+if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ] && [ -e "$TD/claude-senior-worked-$US" ]; then
+  ok "before: a task notification is silent and keeps the turn state"
+else
+  fail "before: task notification handled as a prompt (got: ${out:0:80})"
+fi
+turn_reset "$US"
+
+# both block shapes are valid JSON, and neither has a double quote in its
+# reason (the Cursor and Gemini shims re-embed the reason)
+if command -v node >/dev/null 2>&1; then
+  turn_reset "$US"
+  if answer false "I haven't tested it." | bash "$STOP_HOOK" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const j=JSON.parse(s);process.exit(j.decision==="block"&&!j.reason.includes("\"")?0:1)})' 2>/dev/null; then
+    ok "undone: the block parses as JSON and its reason has no double quote"
+  else
+    fail "undone: block is not valid JSON or its reason has a double quote"
+  fi
+  turn_reset "$US"
+else
+  ok "undone: (node absent) JSON parse check skipped"
+fi
+
+# --- ultracode-advisor: boundaries, reviewer routing, notifications ----------
+adv_hits() { # the matched categories for a prompt, or "none"
+  local o; o=$(u_payload "$1" | CLAUDE_PROJECT_DIR="$SOLO" bash "$ULTRA_HOOK")
+  case "$o" in *"matched: "*) o=${o#*matched: }; printf '%s' "${o%%)*}" ;; *) printf 'none' ;; esac
+}
+adv_check() { # $1 prompt  $2 want
+  local g; g=$(adv_hits "$1")
+  if [ "$g" = "$2" ]; then ok "advisor: '$1' -> $g"; else fail "advisor: '$1' -> got=$g want=$2"; fi
+}
+adv_check "what happened in my last session" none
+adv_check "the author left the className wrong" none
+adv_check "git checkout the branch and open tests for it" none
+adv_check "use dependency injection for the clock" none
+adv_check "add authentication to the admin route" auth
+adv_check "the session cookie expires too early" auth
+adv_check "mask the SSN in the export" pii
+adv_check "refund the duplicate payment" money
+adv_check "check for sql injection in the search endpoint" audit
+adv_check "<task-notification>\\n<result>auth, payment, login</result>" none
+out=$(u_payload "refund the duplicate payment" | CLAUDE_PROJECT_DIR="$SOLO" bash "$ULTRA_HOOK")
+if [[ "$out" == *"money-path-reviewer"* ]]; then ok "advisor: a money hit names the money-path-reviewer"; else fail "advisor: no reviewer named (got: $out)"; fi
+if [[ "$out" == *"prefer a multi-agent Workflow"* ]]; then fail "advisor: still tells the agent to start a workflow"; else ok "advisor: leaves the workflow to the user"; fi
+
+# --- the starter ships the same two senior-check hooks as the core -----------
+STARTER="$HERE/../../starter/hooks"
+if [ -d "$STARTER" ]; then
+  for h in senior-check-before.sh senior-check-after.sh; do
+    if cmp -s "$HERE/$h" "$STARTER/$h"; then ok "starter: $h matches core"; else fail "starter: $h drifted from core/hooks/$h"; fi
+  done
+fi
+
 # --- stack detector ---------------------------------------------------------
 DET="$HERE/../../stacks/detect.sh"; [ -f "$DET" ] || DET="$HERE/../stacks/detect.sh"
 if [ -f "$DET" ]; then
@@ -346,6 +517,11 @@ if [ -f "$CSHIM" ] && [ -f "$GSHIM" ]; then
   out=$(printf '{"session_id":"ga1","hook_event_name":"AfterAgent","stop_hook_active":true}' | bash "$GSHIM" AfterAgent "$HERE/senior-check-after.sh")
   if [ "$(printf '%s' "$out" | tr -d '[:space:]')" = '{}' ]; then ok "gemini shim: stop_hook_active passes through, retry is not re-denied"; else fail "gemini shim: AfterAgent backstop (got: $out)"; fi
   rm -f "${TMPDIR:-/tmp}/claude-senior-stop-ga1"
+  # Gemini names the final answer prompt_response; the shim hands it to the
+  # Stop hook as last_assistant_message
+  out=$(printf '{"session_id":"ga2","hook_event_name":"AfterAgent","stop_hook_active":false,"prompt":"ship it","prompt_response":"Shipped. I have not tested the retry."}' | bash "$GSHIM" AfterAgent "$HERE/senior-check-after.sh")
+  if [[ "$out" == *'"decision":"deny"'* ]] && [[ "$out" == *"UNDONE WORK"* ]]; then ok "gemini shim: prompt_response reaches the undone-work check"; else fail "gemini shim: prompt_response not mapped (got: ${out:0:120})"; fi
+  rm -f "${TMPDIR:-/tmp}/claude-senior-stop-ga2" "${TMPDIR:-/tmp}/claude-senior-undone-ga2"
 fi
 
 # --- devin shim: nested guard deny -> top-level decision block ---------------
@@ -583,6 +759,27 @@ if [ -f "$INSTALLER" ]; then
   fi
   out=$(cd "$TREPO" && payload "git push origin main" | CLAUDE_PROJECT_DIR="$TREPO" bash .senior-mode/hooks/pre-push-checklist.sh)
   if [ "$(classify "$out")" = deny ]; then ok "install: the installed pre-push hook denies from its new location"; else fail "install: installed hook did not deny"; fi
+  # A kit hook from an older version, and an AGENTS.md the project filled in.
+  # A plain re-run keeps both. --upgrade replaces the hook (old copy backed
+  # up) and still keeps AGENTS.md.
+  printf '# hook from an older kit\n' > "$TREPO/.senior-mode/hooks/senior-check-after.sh"
+  printf '# my project\n' > "$TREPO/AGENTS.md"
+  bash "$INSTALLER" --agent claude --stack nextjs-vercel-postgres "$TREPO" >/dev/null 2>&1
+  if [ "$(cat "$TREPO/.senior-mode/hooks/senior-check-after.sh")" = "# hook from an older kit" ] && [ -f "$TREPO/.senior-mode/hooks/senior-check-after.sh.senior-mode" ]; then
+    ok "install: a plain re-run keeps an older hook and writes the new one beside it"
+  else
+    fail "install: plain re-run touched an existing hook"
+  fi
+  bash "$INSTALLER" --upgrade --agent claude --stack nextjs-vercel-postgres "$TREPO" >/dev/null 2>&1
+  bk=""; for d in "$TREPO"/.senior-mode/backup/*/; do [ -f "$d.senior-mode/hooks/senior-check-after.sh" ] && bk=$(cat "$d.senior-mode/hooks/senior-check-after.sh"); done
+  if cmp -s "$HERE/senior-check-after.sh" "$TREPO/.senior-mode/hooks/senior-check-after.sh" \
+     && [ "$bk" = "# hook from an older kit" ] \
+     && [ "$(cat "$TREPO/AGENTS.md")" = "# my project" ] \
+     && [ ! -e "$TREPO/.senior-mode/hooks/senior-check-after.sh.senior-mode" ]; then
+    ok "install: --upgrade replaces the kit's hook, backs up the old copy, keeps AGENTS.md"
+  else
+    fail "install: --upgrade did not behave (backup: '$bk')"
+  fi
   if command -v node >/dev/null 2>&1; then
     if (cd "$TREPO" && node -e "require('./.claude/settings.json'); require('./.cursor/hooks.json')" >/dev/null 2>&1); then
       ok "install: generated .claude/settings.json and .cursor/hooks.json parse as JSON"

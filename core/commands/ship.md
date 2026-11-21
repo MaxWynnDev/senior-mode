@@ -30,8 +30,9 @@ Money-path or migration diffs are NEVER light: full loop plus
    (`stage:up` from the reference stack's QA pack, or your equivalent),
    deploy the working tree there and run the sweep brief against it.
    Fix critical/high findings, re-stage, re-sweep; maximum 3
-   iterations, then STOP and present remaining findings rather than
-   shipping or weakening the check. Skip this step if the project has
+   iterations, then STOP and put the remaining findings to the user as
+   one multiple-choice question (keep fixing, ship without the stage
+   leg, abort) rather than shipping or weakening the check. Skip this step if the project has
    no staging leg.
 4. **Commit.** The exact intended files, with the `Senior-Checklist:`
    trailer. Record the SHA.
@@ -55,7 +56,9 @@ Money-path or migration diffs are NEVER light: full loop plus
    regression.
 9. **Clean up and report.** Tear down staging if you created it. Report:
    shipped SHA, CI run URL and conclusion, deploy state, QA result when
-   run, fixes made during the loop, deferred findings, residual risk.
+   run, and the fixes made during the loop. A finding you didn't fix
+   isn't a report line: fix it, or ask the user about it as a
+   multiple-choice question before you finish.
 
 ## Stop conditions
 
@@ -63,7 +66,8 @@ Money-path or migration diffs are NEVER light: full loop plus
   `success`, the deploy is ready, and any requested post-deploy QA is
   clean.
 - CI RED: 3 fix-forward iterations exhausted. Report the run and the
-  remaining failure.
+  remaining failure, and ask the user how to proceed as one
+  multiple-choice question (keep fixing, revert, leave it red).
 - DEPLOY BLOCKED: CI is green but the deploy is not ready. Report the
   deployment and gate logs.
 - ABORTED: the user declines to ship after pre-flight or audit.

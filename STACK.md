@@ -74,7 +74,7 @@ of these), this is what to change per piece; "keep" means no change.
 | `incident`, `standup` deploy step | your platform's CLI |
 | `stage`, `qa-sweep`, QA pack | only in the reference profile; rebuild on your DB's branching and your e2e runner, or skip |
 | `WORKFLOW.md` | rewrite the pipeline diagram; keep the sections |
-| `full-audit.mjs` (Claude Code) | keep; the dimensions are stack-neutral |
+| `full-audit.js` (Claude Code) | keep; the dimensions are stack-neutral |
 
 Two things never change across stacks: the doctrine docs
 (`ENGINEERING-PRINCIPLES.md`, `PROMPT-STANDARD.md`, `PROMPTING.md`) and

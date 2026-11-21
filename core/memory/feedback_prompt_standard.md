@@ -27,8 +27,8 @@ where intent is obvious.
 skip this step.
 
 **Tier 4: 2+ missing, OR money/auth-path work with ANY element
-missing:** STOP. Name the missing elements, make a best-guess inference,
-wait for the user's revision.
+missing:** STOP before starting. Ask for the missing elements as one
+multiple-choice question, your best-guess inference as the first option.
 
 Higher-stakes paths (money, auth, migrations) get the higher bar because
 mistakes there have real blast radius.

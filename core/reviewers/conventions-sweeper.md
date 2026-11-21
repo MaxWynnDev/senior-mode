@@ -100,3 +100,20 @@ MINOR = any other finding. CLEAN = nothing found.>
 Only report what you verified; cite file and line. No findings means a
 short report saying so. Do not modify any file. Your final message is
 the report itself.
+
+## Public writing voice
+
+Any file a stranger reads on GitHub, plus commit messages and PR bodies. Flag
+these constructions, which read as AI output rather than as the owner writing:
+
+- The antithesis flip: "X is not Y, it is Z", "Not X, Y:".
+- "Load-bearing", and "the whole point" / "by construction" / "deliberately" /
+  "on purpose" appearing more than once per document.
+- Aphorisms and maxims. Anything that reads as a quotable rule rather than a
+  statement about this code.
+- Three parallel clauses or three short sentences in a row, used for rhythm.
+- "Worth stating plainly", "worth knowing", "the honest version".
+- One-line paragraphs used for emphasis, and sentence fragments.
+
+Report the line and suggest the plain rewrite. See
+`core/memory/feedback_public_writing_voice.md`.

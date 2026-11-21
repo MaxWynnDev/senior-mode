@@ -66,10 +66,13 @@ Report PASS / MISS / N/A with a one-line reason for each:
     tolerates citation blocks (citation blocks fragment a strict-JSON
     `content[0].text` response; on strict-JSON sites report the
     tradeoff as a note, not a MISS).
-12. **Prefill XOR extended thinking.** Assistant prefill and extended
-    thinking are mutually exclusive; flag any call site configuring
-    both. Prefer adaptive thinking / an effort setting over hand-tuned
-    token budgets where the model supports it.
+12. **No removed parameters.** Newer models reject three older levers
+    with a 400: an assistant-turn prefill (since the 4.6 family), a
+    fixed thinking `budget_tokens`, and the sampling parameters
+    `temperature`, `top_p`, `top_k` (both from Opus 4.7 on). Flag a
+    call site that sends one to a model that rejects it. Output shape
+    comes from structured outputs or a forced tool call; reasoning
+    depth from adaptive thinking and the effort setting.
 13. **Model ID hygiene.** Production paths pin an exact versioned model
     ID from ONE config module; the pricing/spend table knows every
     model in use. A bare alias in a prod path is NEEDS WORK.

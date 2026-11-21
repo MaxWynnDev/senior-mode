@@ -352,6 +352,17 @@ reg_main() {
   REG_SID="$sid_out"
   base="${raw_cwd:-${SENIOR_MODE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-${GEMINI_PROJECT_DIR:-.}}}}}"
 
+  # SessionEnd: the senior-check hooks keep small per-session state files
+  # in the temp dir (see senior-check-after.sh). Remove this session's,
+  # in a repo or not. Only for an id the sanitizer left unchanged, so the
+  # id can't steer the rm anywhere else.
+  if [ "$mode" = "unregister" ] && [ -n "$raw_sid" ] && [ "$raw_sid" = "$REG_SID" ]; then
+    local st
+    for st in senior-stop senior-undone senior-worked senior-tools push-done; do
+      rm -f "${TMPDIR:-/tmp}/claude-$st-$raw_sid" 2>/dev/null || true
+    done
+  fi
+
   if ! reg_resolve "$base"; then
     case "$mode" in register|unregister) exit 0;; esac
     printf '{}\n'; exit 0

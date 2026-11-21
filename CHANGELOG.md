@@ -1,5 +1,100 @@
 # senior-mode changelog
 
+## v6 (2026-11-21): the answer ends with what got done
+
+I was getting answers that ended in a list of what the agent didn't do.
+The kit was asking for that list in five places. v6 takes the ask out
+and checks the final answer for it.
+
+### The closing contract
+
+- `AGENTS.md` (core, starter, and this repo's own): the agent finishes
+  the work in the turn. A decision that's yours comes as one
+  multiple-choice question, a step only a human can take comes as exact
+  instructions, and a failed check is reported as failed. Non-trivial
+  work closes with an `[AFTER-AUDIT]` block: `Covered` and `Without
+  senior mode`.
+- `[BEFORE-AUDIT]`: `80% gap: <what I would skip and why>` is now
+  `Shortcut I won't take: <what an 80% pass would skip>`.
+- Gone: "State what you did NOT do as explicitly as what you did"
+  (`AGENTS.md`, `ENGINEERING-PRINCIPLES.md` section 14,
+  `CONTRIBUTING.md`), "Name any gaps explicitly so the user sees them"
+  (the after-hook), and the "what a senior would push back on" section
+  of the summary (the senior-default memory). Each one now says to fix
+  the thing.
+- `/iterate` reports `Proves:` in place of `Residual risk:`. `/ship`
+  drops "deferred findings". A capped loop ends with a multiple-choice
+  question. `/techdebt` asks its two options the same way.
+- New memory: `feedback_finish_the_work.md`.
+
+### Hooks
+
+- `senior-check-after.sh` reads `last_assistant_message` from the Stop
+  payload and blocks a final answer that hands back undone work. It runs
+  on push turns too, blocks twice at most per turn, and ignores the
+  phrases inside code spans and quotes.
+- The self-audit skips a turn that ran no command and made no edit. It
+  needs a marker from a tool hook first, so the starter (two hooks, no
+  tool hooks) still checks every turn. `SENIOR_MODE_AFTER_ALWAYS=1`
+  turns the skip off.
+- Fixed: a push made after the self-audit block left
+  `claude-push-done-<session>` behind, and the next turn's self-audit
+  was skipped. The before-hook and every allow now clear it.
+- `session-registry.sh unregister` (SessionEnd) removes the session's
+  state files from the temp dir.
+- `senior-check-before.sh` and `ultracode-advisor.sh` stay silent on a
+  background-task notification. Claude Code runs prompt hooks for those,
+  and both were treating the notification as a prompt.
+- `ultracode-advisor.sh` matched substrings. It fired on "session",
+  "author", "className" (it contains "ssn"), "git checkout", "open
+  tests" and "dependency injection". The patterns have boundaries now.
+- The advisor used to tell the agent to prefer a multi-agent workflow.
+  Claude Code only runs one when you ask. It now names the reviewer to
+  run and says a workflow is your call.
+- `senior-verify-counterfactual.sh` judges the `Without senior mode`
+  line of the `[AFTER-AUDIT]` block. The `[WITHOUT HOOKS]` section is
+  gone. Its default judge model is `claude-haiku-5-5`.
+- The Gemini shims pass `prompt_response` to the Stop hook as
+  `last_assistant_message`.
+
+### Installer
+
+- `install.sh --upgrade`. Re-running the installer over a v5 install
+  kept all 39 files that had changed, the stop hook included, so nobody
+  got a fix by re-running it. `--upgrade` replaces the kit's own code
+  (hooks, shims, procedures, generated skills, commands and workflows),
+  saves each old copy under `.senior-mode/backup/<stamp>/`, and leaves
+  your `AGENTS.md`, doctrine docs, rules, reviewers, memory and agent
+  settings on the old keep-and-merge rule.
+
+### Claude Code
+
+- `full-audit.mjs` is now `full-audit.js`. Claude Code 2.1.330 loads a
+  saved workflow only from a `.js` file and skips `.mjs`, so the workflow
+  couldn't be run by name. The installer never deletes, so it prints a
+  note when it finds the old file.
+- Removed `adapters/claude/settings.json`. Nothing read it, and its hook
+  paths were the v4 ones.
+- `PROMPTING.md`, `prompt-auditor` and `/audit-prompt`: assistant
+  prefill, a fixed `budget_tokens` and the sampling parameters now
+  return a 400 on newer models, so the rubric flags them. Structured
+  outputs join the forced tool call as the way to get a typed object.
+  Model tiers are named without version numbers.
+- `SETUP.md` said Gemini has no block-and-re-prompt for the AFTER
+  check. It has had one since the AfterAgent deny landed.
+
+### Harness
+
+- 141 cases (143 with bun), up from 98. The 43 new ones cover the
+  undone-work check, the 3-block cap, quiet turns, the push flag, the
+  before-hook's notification handling, the session-end cleanup, the
+  advisor's boundaries and reviewer routing, the Gemini mapping, the
+  installer's upgrade mode, and a check that the starter's two hooks are
+  byte-identical to core's. Run against the v5 hooks, 20 of them fail.
+- The harness now runs in its own temp dir. The hooks keep per-session
+  state files there, and a marker left by one run changed what the next
+  run saw.
+
 ## v5 (2026-08-24): every agent, one core, a stack picker
 
 The headline: the kit is no longer wired to one agent. One source of

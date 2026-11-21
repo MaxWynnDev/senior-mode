@@ -25,9 +25,11 @@ specific job. Not every prompt needs all ten.
    invent." "Refer to source."
 9. Output format. A forced tool call with a schema, XML tags, or strict
    JSON. Spec it explicitly.
-10. Prefilled assistant response. Start the reply with `{` or
-    `<final_verdict>` to force structure. Prefill and extended thinking
-    are mutually exclusive: use one or the other, not both.
+10. Output anchor. Older models let you prefill the assistant turn with
+    `{` or `<final_verdict>` to force structure. Newer ones reject a
+    prefilled assistant turn with a 400 (since the 4.6 family), so use
+    structured outputs or a forced tool call, and put any format
+    instruction last in the user turn.
 
 ## Meta-rules
 
@@ -67,14 +69,16 @@ integration.
   504, 529. Retry with exponential backoff.
 - **Extended thinking is first-class, not just a debugger.** Turn it on
   for any step that benefits from reasoning before answering (judgment
-  calls, multi-constraint mapping); with tool use, interleaved thinking
-  lets the model reason between tool calls. On current models prefer
-  adaptive thinking or the effort setting over a hand-tuned token
-  budget: the model scales reasoning depth to the problem instead of
-  padding to a fixed budget. It is still the best prompt debugger too:
-  read the scratch pad and patch the prompt at the exact spot where the
-  model's reasoning diverges from yours. It cannot be combined with
-  assistant prefill.
+  calls, multi-constraint mapping); with tool use, the model reasons
+  between tool calls. Use adaptive thinking
+  (`thinking: {type: "adaptive"}`) and set depth with the effort
+  setting. A fixed `budget_tokens` is deprecated on the 4.6 family and
+  returns a 400 from Opus 4.7 on. So do the sampling parameters
+  (`temperature`, `top_p`, `top_k`), so don't build a feature that
+  depends on either. Thinking is still the best prompt debugger: read it
+  and patch the prompt at the exact spot where the model's reasoning
+  diverges from yours. Newer models leave the thinking text out unless
+  you ask for the summarized display.
 - **Give the model a test, not a fact, for grounding.** When output
   must match a closed vocabulary (proper nouns, slugs, enum values), do
   not just list the vocabulary; tell the model every emitted value must
@@ -86,14 +90,16 @@ integration.
   change, and pin exact versioned IDs (not bare aliases) in production
   paths so behavior does not shift under you. The spend/pricing table
   must know every ID in use or spend recording breaks silently.
-- Default product features to the current frontier tier (the Claude 5
-  family: Fable 5 where available, otherwise Opus 5); downgrade a call
-  site to the balanced tier (Sonnet 5) only after it passes your evals
-  on that task.
-- Use the fast tier (Haiku 4.5 as of this writing) for mechanical,
-  high-volume work: classification, routing, judge/verifier passes,
-  memory extraction, convention sweeps. The conventions-sweeper agent in
-  this kit runs on it for exactly that reason.
+- Default product features to the current frontier tier (Opus, or Fable
+  where you have it); downgrade a call site to the balanced tier
+  (Sonnet) only after it passes your evals on that task.
+- Use the fast tier (Haiku) for mechanical, high-volume work:
+  classification, routing, judge/verifier passes, memory extraction,
+  convention sweeps. The conventions-sweeper agent in this kit runs on
+  it for that reason.
+- Version numbers go stale faster than this file. Read the current IDs
+  from the Models API (`GET /v1/models`) when you set the config module,
+  and use them exactly as listed.
 - Batch non-interactive bulk work through the Batches API when latency
   does not matter; it is materially cheaper than streaming the same
   calls.
@@ -109,13 +115,14 @@ integration.
 
 | Pattern | When to use |
 |---|---|
-| Tool-use structured output (forced tool call, schema validated at the API) | The most reliable way to get a typed object back. Prefer this when a forced tool call fits the shape. |
+| Structured outputs (`output_config.format` with a JSON schema) | The direct way to get a typed object back on current models. Start here. |
+| Tool-use structured output (forced tool call, schema validated at the API) | Just as reliable. Use it when the result is naturally a tool call, or the model predates structured outputs. |
 | Strict JSON schema in prompt plus post-parse validation | Pipeline output where a tool call does not fit. |
 | XML wrapper around final verdict | When Claude should reason out loud and you extract the verdict from a tagged block. |
 | Plain text streaming | Chat. |
 
-For new pipeline features, prefer a forced tool call with a schema
-(structured output) over prompt-and-parse; fall back to JSON-in-prompt
+For new pipeline features, prefer structured outputs or a forced tool
+call with a schema over prompt-and-parse; fall back to JSON-in-prompt
 plus a validator when a tool call does not fit the shape. For new agent
 features (long-running tool use), prefer XML around the final answer so
 the reasoning is auditable. Validate post-parse either way: output is
@@ -128,8 +135,10 @@ untrusted.
 - [ ] Per-call data lives in `user`
 - [ ] Today's date and other moving values are NOT in cached blocks
 - [ ] Output format specified explicitly
-- [ ] Structured output via a forced tool call where the shape allows;
+- [ ] Structured outputs or a forced tool call where the shape allows;
       prompt-and-parse only as fallback
+- [ ] No assistant prefill, `budget_tokens`, or sampling parameters sent
+      to a model that rejects them
 - [ ] Output validated post-parse (coerce vs hard-fail decided per field)
 - [ ] Confidence gating wired ("set skip:true if you can't tell")
 - [ ] Spend cap asserted before sending

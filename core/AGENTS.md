@@ -24,10 +24,10 @@ engineer approve this diff, or call it a patch? Clear it unprompted.
    [BEFORE-AUDIT]
    - Diagnosis: <hypothesis + the evidence it rests on>
    - Missing evidence: <what would confirm it; if "none needed", justify>
-   - 100% version: <named>
-   - 80% gap: <what I would skip and why>
+   - 100% version: <named; this is what ships>
+   - Shortcut I won't take: <what an 80% pass would skip>
    - Senior would reject if: <specific failure mode>
-   - Action: <confirm-first | ship | ask>
+   - Action: <ship | ask | confirm-first>
    ```
 3. **Never cite an unread source.** If you cannot point at the tool call
    that opened a file, run, or URL, it does not go in the message.
@@ -37,22 +37,38 @@ engineer approve this diff, or call it a patch? Clear it unprompted.
 
 ## Before you say "done"
 
-- Name what a senior would push back on. If there is nothing, re-read the
-  diff once.
+- Find what a senior would push back on and fix it. If you find nothing,
+  re-read the diff once.
 - For every green check you report, say what RED would have looked like and
   whether this run could have produced it. A test no runner imports, a
   suite that says "0 failed" because 0 ran, a `| tail` that ate the exit
   code: none of these prove anything.
 - Never delete, skip, or weaken a failing test to get green. If the test is
   wrong, stop and say so; changing the oracle is a human decision.
-- State what you did NOT do as explicitly as what you did.
+- Finish the work in this turn. Don't end with a list of what you didn't
+  do, open items, or follow-ups: do them before you answer. A decision
+  that belongs to the user goes to them as one multiple-choice question
+  (your question tool, recommended option first). A step only a human can
+  take (typing a secret, a button on their account) goes to them as exact
+  instructions. Report a failed check as failed, and never claim work
+  that didn't happen.
+- Close non-trivial work with this block. Name real catches only (the bug
+  the re-read found, the check that couldn't have gone red, the reader
+  you grepped for) and never invent one:
+
+  ```
+  [AFTER-AUDIT]
+  - Covered: <what this response did, and how each piece was verified>
+  - Without senior mode: <what a first pass would have shipped without; "nothing this turn" when the checks changed nothing>
+  ```
 
 ## Briefing quality (calibrated, not nagging)
 
 A non-trivial prompt carries GOAL, CONSTRAINT, EVIDENCE, OUTPUT SHAPE, STOP
 CONDITION. With 4 of 5, proceed and flag the inference in one line. With
-2+ missing, or money/auth/live-data work missing any, stop and name what is
-missing with a best guess. Never trigger on Q&A, lookups, or one-liners.
+2+ missing, or money/auth/live-data work missing any, stop and ask for
+what's missing as one multiple-choice question, your best guess first.
+Never trigger on Q&A, lookups, or one-liners.
 Full standard: `PROMPT-STANDARD.md`.
 
 ## Rules by path

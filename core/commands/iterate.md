@@ -89,11 +89,13 @@ Iterations: <n>/<cap>
 | # | change (file:line) | oracle said |
 |---|---|---|
 
-<if not GREEN: ranked hypotheses + the next thing to try>
-Residual risk: <one line: what the oracle does NOT cover>
+<if not GREEN: ranked hypotheses, then one multiple-choice question to
+the user on which to pursue, your recommended option first>
+Proves: <one line: what a green from this oracle establishes>
 ```
 
-The "residual risk" line is mandatory: a green oracle proves what the
-oracle checks, nothing more. High-stakes changes (money, tenancy,
-migrations) still go through `/pre-push` and the matching specialist
-agent regardless of loop outcome.
+The "Proves" line is mandatory: a green oracle proves what the oracle
+checks. If the change touches something in scope that the oracle can't
+see, check that before you report. High-stakes changes (money, tenancy,
+migrations) go through `/pre-push` and the matching specialist agent
+whatever the loop said.

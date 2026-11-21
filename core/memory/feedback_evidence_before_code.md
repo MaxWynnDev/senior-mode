@@ -21,15 +21,15 @@ change, output this block first:
 [BEFORE-AUDIT]
 - Diagnosis: <hypothesis + the evidence it rests on>
 - Missing evidence: <what would confirm it; if "none needed", justify>
-- 100% version: <named>
-- 80% gap: <what I would skip and why>
+- 100% version: <named; this is what ships>
+- Shortcut I won't take: <what an 80% pass would skip>
 - Senior would reject if: <specific failure mode>
-- Action: <confirm-first | ship | ask>
+- Action: <ship | ask | confirm-first>
 ```
 
 Empty or "n/a" lines are fine when genuinely n/a; lying is the gap.
 Strict-superset, zero-risk fixes do not skip the block: they fill
-"Missing evidence: none load-bearing, change is a strict superset" and
+"Missing evidence: none needed, the change is a strict superset" and
 proceed.
 
 Two corollaries:

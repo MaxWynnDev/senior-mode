@@ -5,20 +5,41 @@
 #
 # Contract for a generator:  bash adapters/<agent>/generate.sh <target-repo>
 # Environment: SM_KIT (kit root), SM_DRY (yes|no), SM_FORCE (yes|no),
+#              SM_UPGRADE (yes|no), SM_BACKUP (dir for replaced files),
 #              SM_STACK (profile name or empty). All set by install.sh; a
 #              generator run by hand gets sane defaults below.
 
 SM_KIT="${SM_KIT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SM_DRY="${SM_DRY:-no}"
 SM_FORCE="${SM_FORCE:-no}"
+SM_UPGRADE="${SM_UPGRADE:-no}"
+SM_BACKUP="${SM_BACKUP:-}"
 SM_STACK="${SM_STACK:-}"
 SM_MERGE_LIST="${SM_MERGE_LIST:-}"   # accumulates "<path>" entries that need a hand merge
 
 sm_say() { printf '[senior-mode] %s\n' "$*"; }
 
+# sm_kit_owned <relpath> -> 0 when the path is the kit's own code, which
+# --upgrade may replace: hooks, shims, procedures, the kit's guides, and the
+# skills, commands and workflows generated from them. Everything a project
+# fills in or tunes (AGENTS.md, CLAUDE.md, the doctrine docs, rules,
+# reviewers, memory, stack profiles, per-agent settings and hook wiring) is
+# not, and keeps the non-clobbering rule.
+sm_kit_owned() {
+  case "$1" in
+    .senior-mode/hooks/*|.senior-mode/adapters/*|.senior-mode/commands/*) return 0 ;;
+    .senior-mode/SETUP.md|.senior-mode/STACK.md|.senior-mode/KICKOFF-PROMPT.md) return 0 ;;
+    .agents/skills/*|.claude/commands/*|.claude/workflows/*) return 0 ;;
+    .gemini/commands/*|.opencode/commands/*|.factory/commands/*|.augment/commands/*) return 0 ;;
+  esac
+  return 1
+}
+
 # sm_put <dest-path>   (content on stdin)
 # Non-clobbering: writes when absent; skips when byte-identical; otherwise
 # writes <dest>.senior-mode beside it and records it for the MERGE list.
+# With SM_UPGRADE=yes a differing kit-owned file is replaced instead, after
+# its old copy is saved under SM_BACKUP.
 sm_put() {
   local dest="$1" tmp
   tmp="$(mktemp)"; cat > "$tmp"
@@ -27,6 +48,17 @@ sm_put() {
     if [ "$SM_FORCE" = yes ]; then
       sm_say "replace ${dest#$SM_TARGET/}"
       [ "$SM_DRY" = yes ] || mv -f "$tmp" "$dest"; [ "$SM_DRY" = yes ] && rm -f "$tmp"; return 0
+    fi
+    if [ "$SM_UPGRADE" = yes ] && sm_kit_owned "${dest#$SM_TARGET/}"; then
+      local rel="${dest#$SM_TARGET/}"
+      if [ "$SM_DRY" = yes ]; then sm_say "update  $rel"; rm -f "$tmp"; return 0; fi
+      # Replace only once the old copy is safely in the backup dir.
+      if [ -n "$SM_BACKUP" ] && mkdir -p "$SM_BACKUP/$(dirname "$rel")" && cp -p "$dest" "$SM_BACKUP/$rel"; then
+        sm_say "update  $rel"
+        # A sibling an earlier plain run wrote is now the installed file.
+        [ -f "$dest.senior-mode" ] && cmp -s "$tmp" "$dest.senior-mode" && rm -f "$dest.senior-mode"
+        mv -f "$tmp" "$dest"; return 0
+      fi
     fi
     sm_say "keep    ${dest#$SM_TARGET/}  (differs; new version at ${dest#$SM_TARGET/}.senior-mode)"
     SM_MERGE_LIST="$SM_MERGE_LIST

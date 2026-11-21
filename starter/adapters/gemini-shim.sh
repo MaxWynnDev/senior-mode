@@ -49,6 +49,9 @@ case "$EVENT" in
   *)            CANON_EV=$EVENT ;;
 esac
 CANON=$(printf '%s' "$INPUT" | sed "s/\"hook_event_name\"[[:space:]]*:[[:space:]]*\"[A-Za-z]*\"/\"hook_event_name\": \"$CANON_EV\"/")
+# AfterAgent carries the final answer as prompt_response. The Stop hook
+# reads it as last_assistant_message for its undone-work check.
+CANON=$(printf '%s' "$CANON" | sed 's/"prompt_response"[[:space:]]*:/"last_assistant_message":/')
 # Gemini's shell tool name -> the matcher the hooks expect
 CANON=$(printf '%s' "$CANON" | sed 's/"tool_name"[[:space:]]*:[[:space:]]*"run_shell_command"/"tool_name": "Bash"/; s/"tool_name"[[:space:]]*:[[:space:]]*"write_file"/"tool_name": "Write"/; s/"tool_name"[[:space:]]*:[[:space:]]*"replace"/"tool_name": "Edit"/')
 

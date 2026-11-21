@@ -47,6 +47,12 @@ case "$TOOL" in
   *) exit 0 ;;
 esac
 
+# An edit tool ran: record it for senior-check-after.sh, which skips its
+# self-audit on a turn with no shell call and no edit.
+SESSION_ID=$(printf '%s' "$FLAT" | grep -oE '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]+)"$/\1/')
+touch "${TMPDIR:-/tmp}/claude-senior-tools-${SESSION_ID:-unknown}" \
+      "${TMPDIR:-/tmp}/claude-senior-worked-${SESSION_ID:-unknown}" 2>/dev/null || true
+
 FILE=$(printf '%s' "$FLAT" | sed -nE 's/.*"file_path"[[:space:]]*:[[:space:]]*"((\\.|[^"\\])*)".*/\1/p')
 # Augment's tool_input carries the file under "path"
 [ -n "$FILE" ] || FILE=$(printf '%s' "$FLAT" | sed -nE 's/.*"path"[[:space:]]*:[[:space:]]*"((\\.|[^"\\])*)".*/\1/p')

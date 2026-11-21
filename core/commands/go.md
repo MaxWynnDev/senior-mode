@@ -64,4 +64,4 @@ through step 1; that rule is absolute.
 STOP CONDITION: the change is committed, every check from step 1 is
 green on the final tree (or explicitly pending remote CI), and you have
 reported: what was verified (and how), what was simplified, review
-verdict, commit SHA.
+verdict, commit SHA, closing with the `[AFTER-AUDIT]` block.

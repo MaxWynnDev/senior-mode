@@ -71,8 +71,8 @@ wrong."
 
 **Tier 4: 2+ elements missing, OR money/auth-path work with ANY
 element missing.** STOP. Do not start work. Name the missing elements
-specifically, make a best-guess inference from context, wait for the
-user's revision.
+and ask for them in one multiple-choice question, with your best-guess
+inference from context as the first option.
 
 Higher-stakes paths (money, auth, migrations, anything with real blast
 radius) get the higher bar because mistakes there are expensive.
@@ -98,10 +98,10 @@ route, pick plan-first vs build-first. I'll wait."
 ## How Claude enforces this
 
 When you submit a non-trivial prompt missing required elements, Claude
-will identify which elements are missing, suggest concrete additions
-based on what it can infer, and wait for your revision before doing
-any work. If you guess right 90% of the time, asking for clarification
-on the 10% saves more time than guessing wrong.
+names the missing elements and asks for them in one multiple-choice
+question, with its best guess as the first option, before doing any
+work. Answering takes one keypress. If you guess right 90% of the time,
+asking for clarification on the 10% saves more time than guessing wrong.
 
 ## Delegate, don't pair
 
@@ -203,7 +203,7 @@ GOAL            what to make true
 ORACLE          the check command (or remote job) that decides, automatically
 ACTION          the smallest fix consistent with the failure
 STOP CONDITION  oracle green, or the iteration cap
-BUDGET          max iterations (default 4) before stop-and-report
+BUDGET          max iterations (default 4) before it stops and asks you
 ```
 
 The oracle IS your STOP CONDITION made executable. A loop without a
@@ -327,7 +327,7 @@ Two more ready-made parallel surfaces ship with this kit:
 
 - `/pre-push` fans the review subagents in `.senior-mode/reviewers/` out
   against your current diff and aggregates one report.
-- The `full-audit` workflow (`.claude/workflows/full-audit.mjs`) runs a
+- The `full-audit` workflow (`.claude/workflows/full-audit.js`) runs a
   repo-wide multi-agent audit with adversarial verification. Reserve it
   for when you genuinely want a full sweep; it spawns many agents.
 

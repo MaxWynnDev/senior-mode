@@ -40,9 +40,9 @@ for every item or drop it.
 
 OUTPUT SHAPE: a ranked markdown list (worst first), each item with
 file:line, one-line description, and the suggested action (extract /
-delete / update doc / split / wire). End by offering exactly two
-follow-ups: fix the top N now, or record the list (memory, a DEBT.md,
-or the tracker CLAUDE.md names).
+delete / update doc / split / wire). End with one multiple-choice
+question (your question tool where you have one): fix the top N now, or
+record the list (memory, a DEBT.md, or the tracker CLAUDE.md names).
 
-STOP CONDITION: report delivered. Do not start fixing unless the user
-picks that follow-up.
+STOP CONDITION: report delivered and the question asked. Do not start
+fixing unless the user picks that option.

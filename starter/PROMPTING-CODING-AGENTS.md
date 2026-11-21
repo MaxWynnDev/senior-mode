@@ -50,7 +50,8 @@ success looks like (STOP).
 - **Tier 3, 4 of 5 present:** proceed, but flag the inference in one
   line ("Inferring OUTPUT=plan-first; revise if wrong").
 - **Tier 4, 2+ missing, or money/auth work with ANY element missing:**
-  stop, name the missing elements, make a best guess, wait.
+  stop and ask for the missing elements as one multiple-choice question,
+  best guess first.
 
 Calibration, not nagging. If the agent guesses right 90% of the time,
 asking on the other 10% is cheaper than guessing wrong.

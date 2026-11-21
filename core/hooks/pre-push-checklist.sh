@@ -57,6 +57,13 @@ FLAT=$(printf '%s' "$INPUT" | tr -d '\n')
 SESSION_ID=$(printf '%s' "$FLAT" | grep -oE '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]+)"$/\1/')
 CMD=$(printf '%s' "$FLAT" | sed -nE 's/.*"command"[[:space:]]*:[[:space:]]*"((\\.|[^"\\])*)".*/\1/p')
 
+# This hook sees every shell call, so it also records that the turn ran
+# one. senior-check-after.sh skips its self-audit on a turn with no shell
+# call and no edit, and only when the tools marker shows these hooks are
+# wired in this session.
+touch "${TMPDIR:-/tmp}/claude-senior-tools-${SESSION_ID:-unknown}" \
+      "${TMPDIR:-/tmp}/claude-senior-worked-${SESSION_ID:-unknown}" 2>/dev/null || true
+
 # Is this Bash call actually a `git push`? Match "git", then any git
 # options (-C <dir>, -c k=v, --flags), then the verb "push" at the start
 # of any shell segment. JSON escapes inside $CMD do not affect this.

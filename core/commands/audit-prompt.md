@@ -22,8 +22,9 @@ Specifically check:
 9. Retry block handles 408 / 429 / 500 / 502 / 503 / 504 / 529
 10. Spend recorded after response
 11. User-supplied prompt fragments are XML-delimited (not concatenated)
-12. Prefill XOR extended thinking (never both); adaptive thinking or an
-    effort setting preferred over a hand-tuned token budget
+12. No assistant prefill, fixed `budget_tokens`, or sampling parameters
+    sent to a model that rejects them; adaptive thinking and the effort
+    setting set reasoning depth
 13. Exact versioned model ID from one config module; pricing table
     knows the model
 14. Prompt, builders, and validator in a pure module with eval cases

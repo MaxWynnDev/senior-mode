@@ -4,7 +4,7 @@
 #   .claude/rules/*.md         core rules, stack rules override same-layer core rules
 #   .claude/agents/*.md        reviewers, native frontmatter
 #   .claude/commands/*.md      commands, native frontmatter
-#   .claude/workflows/         multi-agent audit (Claude Code Workflow tool)
+#   .claude/workflows/*.js     multi-agent audit (Claude Code Workflow tool)
 # CLAUDE.md at the root is written by install.sh (it imports AGENTS.md).
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../_lib.sh"
@@ -46,4 +46,10 @@ for f in "$SM_KIT"/core/commands/*.md; do sm_copy "$f" "$SM_TARGET/.claude/comma
 if [ -n "$SM_STACK" ] && [ -d "$SM_KIT/stacks/$SM_STACK/commands" ]; then
   for f in "$SM_KIT/stacks/$SM_STACK/commands"/*.md; do [ -f "$f" ] && sm_copy "$f" "$SM_TARGET/.claude/commands/$(basename "$f")"; done
 fi
-for f in "$SM_KIT"/adapters/claude/workflows/*.mjs; do [ -f "$f" ] && sm_copy "$f" "$SM_TARGET/.claude/workflows/$(basename "$f")"; done
+# Claude Code loads a saved workflow only from a .js file. Earlier kit
+# versions installed full-audit.mjs, which it skips; this adapter never
+# deletes, so it says so.
+for f in "$SM_KIT"/adapters/claude/workflows/*.js; do [ -f "$f" ] && sm_copy "$f" "$SM_TARGET/.claude/workflows/$(basename "$f")"; done
+if [ -f "$SM_TARGET/.claude/workflows/full-audit.mjs" ]; then
+  sm_say "note    .claude/workflows/full-audit.mjs is from an older install and Claude Code does not load .mjs workflows; delete it"
+fi

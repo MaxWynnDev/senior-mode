@@ -68,6 +68,13 @@ behaviour is asked for in `AGENTS.md` rather than enforced.
 | Windsurf, Kiro, Amp, Zed, Warp, Jules, Junie, Cline | `AGENTS.md` | not wired (see notes) | instruction | instruction | not wired | instruction | instruction | `.agents/skills` where read |
 | Aider | none by default | no | instruction (add `read: [AGENTS.md]` to `.aider.conf.yml`) | | | | | |
 
+The AFTER check also reads the final answer and blocks one that hands
+back undone work. That part needs the answer text in the hook payload:
+`last_assistant_message` (Claude Code, Codex), or Gemini's
+`prompt_response`, which the shim renames. Cursor's `stop` payload has
+no answer text, so the check is skipped there, and any agent that does
+not send the field skips it the same way.
+
 Notes on the last two rows: Windsurf has a `.windsurf/hooks.json` with a
 different stdin shape (`tool_info`), Kiro has `.kiro/hooks/*.json` with an
 undocumented stdin contract, Junie's hooks are user-level only

@@ -75,7 +75,8 @@ The doctrine applies to this repo too:
 - Bash that runs on macOS, Linux, and Windows Git Bash. No GNU-only sed or
   awk extensions; the macOS leg has already caught one of those.
 - No em dashes or en dashes in prose. Commas, periods, colons, parentheses.
-- Say what you did not do as explicitly as what you did.
+- Finish what you start, then tell me what the change covers and how you
+  tested it.
 
 ### Commits
 

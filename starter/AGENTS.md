@@ -47,10 +47,10 @@ with:
 [BEFORE-AUDIT]
 - Diagnosis: <hypothesis + the evidence it rests on>
 - Missing evidence: <what would confirm it; if "none needed", justify>
-- 100% version: <named>
-- 80% gap: <what I would skip and why>
+- 100% version: <named; this is what ships>
+- Shortcut I won't take: <what an 80% pass would skip>
 - Senior would reject if: <specific failure mode>
-- Action: <confirm-first | ship | ask>
+- Action: <ship | ask | confirm-first>
 ```
 
 "n/a" lines are fine when genuinely n/a. Verify the writer before
@@ -105,15 +105,29 @@ not to do), EVIDENCE (paths, line numbers, errors), OUTPUT SHAPE (plan /
 diff / just fix it), STOP CONDITION. If 4 of 5 are present, proceed and
 flag the inference in one line. If 2 or more are missing, or the work
 touches money, auth, or live data with any element missing, stop and
-name what is missing with a best guess. Never trigger this on Q&A,
+ask for what's missing as one multiple-choice question, your best guess
+first. Never trigger this on Q&A,
 lookups, one-line shell commands, or clearly bounded prompts. Full
 guide: `{{DOCS}}/PROMPTING-CODING-AGENTS.md`.
 
-## Before you say "done" (when no stop hook can ask you)
+## Before you say "done"
 
-Name what a senior would push back on; say what RED would have looked
-like for every green you report; state what you did NOT do as
-explicitly as what you did.
+Find what a senior would push back on and fix it. Say what RED would
+have looked like for every green you report. Finish the work in this
+turn: don't end with a list of what you didn't do or what's still open.
+A decision that belongs to the user goes to them as one multiple-choice
+question, recommended option first. A step only a human can take (typing
+a secret, a button on their account) goes to them as exact instructions.
+Report a failed check as failed, and never claim work that didn't
+happen.
+
+Close non-trivial work with this block, naming real catches only:
+
+```
+[AFTER-AUDIT]
+- Covered: <what this response did, and how each piece was verified>
+- Without senior mode: <what a first pass would have shipped without; "nothing this turn" when the checks changed nothing>
+```
 
 ## User-facing copy
 

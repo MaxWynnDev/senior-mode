@@ -41,10 +41,11 @@ surfacing related broken code) is what clears the bar.
   in 6 months, (c) related broken code in the same file got surfaced
   honestly, (d) concurrency was considered for any helper called from
   multiple entry points.
-- *Before pushing:* draft the user-facing summary FIRST. If it does not
-  include an explicit "what a senior would push back on" section, that
-  is a signal: either the work is genuinely senior-grade (re-read the
-  diff once to confirm) or the section is being suppressed (restore it).
+- *Before pushing:* draft the user-facing summary FIRST, then ask what a
+  senior would push back on in it. Fix each thing you find before the
+  push. What you caught goes in the `[AFTER-AUDIT]` block as a catch,
+  never as a list of things left open. If you find nothing, re-read the
+  diff once to confirm.
 
 **The recitation trap.** Citing this rule in conversation does NOT
 enforce it. Treat it as a checklist to RUN at the specific moments above,
@@ -53,4 +54,4 @@ will..." without having paused at the listed trigger moment, that is the
 violation. Stop and run the checklist.
 
 Related: [[feedback-engineering-principles]], [[feedback-thoroughness]],
-[[feedback-no-approval-loops]].
+[[feedback-no-approval-loops]], [[feedback-finish-the-work]].

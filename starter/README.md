@@ -15,8 +15,8 @@ project files.
 | Piece | What it does |
 |---|---|
 | The behavioral core (`CLAUDE.md` for Claude Code, `AGENTS.md` for everyone else) | senior-engineer bar, ask-when-ambiguous, evidence before code, never cite an unread source, one-pass thoroughness, never weaken a test to get green. Loaded every turn. |
-| `senior-check-before.sh` | fires on every prompt: injects the "ambiguity? evidence? name the 100% version" checklist at the decision moment, so it is applied rather than merely remembered. |
-| `senior-check-after.sh` | fires once at the end of every turn: "did you cut corners, would a senior push back, could your green have gone red?" The agent fixes it before you see the answer. |
+| `senior-check-before.sh` | fires on every prompt: injects the "ambiguity? evidence? name the 100% version, finish in this turn" checklist at the decision moment, so it is applied rather than merely remembered. |
+| `senior-check-after.sh` | fires once at the end of every turn: "did you cut corners, would a senior push back, could your green have gone red?" The agent fixes it before you see the answer. It also reads the final answer and sends it back when it lists work that wasn't done. |
 | `ENGINEERING-PRINCIPLES.md` | the operating doctrine: never / always lists, money / PII / multi-tenant invariants, security defaults, a 400-line file budget, a refactor-risk model, and "how a review lies to itself". |
 | `PROMPTING-CODING-AGENTS.md` | how to brief an agent so it does the right thing the first time. Read once. The single highest-leverage thing in this folder. |
 | `/review` | a fast pass over your current diff for bugs, access-control slips, money/data hazards, and leftover debugging. |
