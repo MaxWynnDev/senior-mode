@@ -24,6 +24,14 @@ const NOT_A_CALL = new Set([
   'protected', 'abstract', 'override', 'readonly', 'declare', 'async',
 ]);
 const DECL_WORDS = new Set(['const', 'let', 'var', 'function', 'class', 'enum', 'interface', 'type', 'namespace']);
+// The only words that can sit right before a call, or right after one, on
+// the same line. Any other word there means prose: JSX text that happens
+// to spell a call.
+const WORD_BEFORE_CALL = new Set([
+  'return', 'await', 'yield', 'typeof', 'void', 'delete', 'in', 'of', 'case',
+  'else', 'do', 'throw', 'instanceof', 'export', 'default', 'extends',
+]);
+const WORD_AFTER_CALL = new Set(['as', 'satisfies', 'in', 'of', 'instanceof', 'while']);
 
 // { a, b as c, type D } between the braces at open..close.
 // name is the name on the other module's side, local is the name here.
@@ -336,11 +344,15 @@ export function callsOf(toks, names) {
     const prev = toks[i - 1];
     if (prev && prev.t === 'p' && (prev.v === '.' || prev.v === '?.' || prev.v === '#' || prev.v === '@')) continue;
     if (prev && prev.t === 'id' && NOT_A_CALL.has(prev.v)) continue;
+    // `word name(` on one line is not an expression. It is JSX text.
+    if (prev && prev.t === 'id' && prev.line === t.line && !WORD_BEFORE_CALL.has(prev.v)) continue;
     const close = matchClose(toks, i + 1);
     if (close < 0) continue;
     const after = toks[close + 1];
     // name(...) { is a method, name(...): is a signature or a ternary arm.
     if (after && after.t === 'p' && (after.v === '{' || after.v === ':' || after.v === '=>')) continue;
+    // `name(...) word` on one line is JSX text too.
+    if (after && after.t === 'id' && after.line === toks[close].line && !WORD_AFTER_CALL.has(after.v)) continue;
     const argc = countArgs(toks, i + 1, close);
     if (argc >= 0) out.push({ name: t.v, argc, line: t.line });
   }

@@ -170,6 +170,8 @@ const text = "add(1, 2, 3, 4) in a string";
 export function View() {
   return <p title="it'"'"'s">Don'"'"'t call add(1, 2, 3) here: it'"'"'s text {add(1, 2)} </p>;
 }
+export function Note() { return <span>don'"'"'t call add(1, 2, 3) from prose</span>; }
+export function Bold() { return <b>add(1, 2, 3) is wrong</b>; }
 export const all = [doc, re, text];'
   printf '%s\n' 'export const ctl = add(1);' >> "$R/src/e1.tsx"
   only "lexer: comments, templates, regexes, strings and JSX text are not code" "$(edit "$R/src/e1.tsx")" "e1.tsx" "this call passes 1"
