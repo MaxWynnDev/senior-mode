@@ -76,6 +76,10 @@ deny() { # <reason: no double quotes, \n for a line break>
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "PreToolUse",\n    "permissionDecision": "deny",\n    "permissionDecisionReason": "%s"\n  }\n}\n' "$1"
   exit 0
 }
+# Where check.sh sits in this install (a repo's .senior-mode/hooks, or
+# ~/.senior-mode/hooks for the global one), for the two messages below.
+HOOK_DIR=$(cd "$(dirname "$0")" 2>/dev/null && pwd)
+case "$HOOK_DIR" in ''|*[\'\"\\]*) HOOK_DIR=".senior-mode/hooks" ;; esac
 
 # The two checks below read a command that starts a shell segment, so a
 # checker's name inside a commit message or an echo is not a hit. The
@@ -90,7 +94,7 @@ MASK='\|\|[[:space:]]*(true|:)([[:space:]]|$|[;&|)\\])'
 
 # ---- 2. a checker that cannot fail ----------------------------------------------
 if printf '%s' "$CMD" | grep -qE "${SEG}(${VIA}${TOOL}|${SCRIPT})${REST}${MASK}"; then
-  deny 'BLOCKED: `|| true` after a checker throws its exit code away, so a red run reads as exit 0 and the green proves nothing. Run it bare. To keep going after a failure and still see it, redirect and print the code:\n  <the check> > check.log 2>&1; echo CHECK_EXIT=$?\nor run bash .senior-mode/hooks/check.sh, which does that and records the result.'
+  deny 'BLOCKED: `|| true` after a checker throws its exit code away, so a red run reads as exit 0 and the green proves nothing. Run it bare. To keep going after a failure and still see it, redirect and print the code:\n  <the check> > check.log 2>&1; echo CHECK_EXIT=$?\nor run bash '"$HOOK_DIR"'/check.sh, which does that and records the result.'
 fi
 
 # ---- 3. tsc with files, where a tsconfig exists ---------------------------------
@@ -99,7 +103,7 @@ if printf '%s' "$CMD" | grep -qE "${TSC}[^;&|]*\\.(ts|tsx|mts|cts)([[:space:]]|\
    && ! printf '%s' "$CMD" | grep -qE "${TSC}([^;&|]*[[:space:]])?(-p|--project|-b|--build)([[:space:]=]|\$)"; then
   ROOT="${SENIOR_MODE_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-${CURSOR_PROJECT_DIR:-${GEMINI_PROJECT_DIR:-.}}}}"
   if [ -f tsconfig.json ] || [ -f "$ROOT/tsconfig.json" ]; then
-    deny 'BLOCKED: tsc was given source files and this repo has a tsconfig.json. With files on the command line tsc ignores the tsconfig, so they are checked under default options and the result says nothing about the project. Run the project check (tsc --noEmit -p . or the repo typecheck script), or bash .senior-mode/hooks/check.sh.'
+    deny 'BLOCKED: tsc was given source files and this repo has a tsconfig.json. With files on the command line tsc ignores the tsconfig, so they are checked under default options and the result says nothing about the project. Run the project check (tsc --noEmit -p . or the repo typecheck script), or bash '"$HOOK_DIR"'/check.sh.'
   fi
 fi
 
