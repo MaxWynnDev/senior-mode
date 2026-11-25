@@ -34,7 +34,11 @@
 #    off for that session.
 #
 # SENIOR_MODE_TYPECHECK=off turns tier 2 off (a repo where CI owns the
-# typecheck). SENIOR_MODE_SYNTAX=off turns the whole hook off.
+# typecheck). The repo's own TypeScript still parses the file for syntax
+# errors then. SENIOR_MODE_TYPECHECK=no-compiler goes one step further and
+# loads nothing from the repo's toolchain: the tokenizer and `ast` checks
+# only, for a repo whose policy is that no local process touches
+# node_modules. SENIOR_MODE_SYNTAX=off turns the whole hook off.
 #
 # Findings come back as a PostToolUse block: the edit already happened,
 # and the reason lands next to the tool result so the agent fixes it
@@ -69,6 +73,8 @@ TYPES="${SENIOR_MODE_TYPECHECK:-on}"
 # default budget) inside the 30 seconds this hook is wired with, and the
 # commit gate's call inside its 15.
 FAST=4
+COMPILER=yes
+if [ "$TYPES" = no-compiler ]; then TYPES=off; COMPILER=no; fi
 [ "$MODE" = plain ] && TYPES=off
 
 JS=(); PY=(); GO=(); RS=(); SH=(); RB=(); JSON=(); SRC=()
@@ -152,10 +158,10 @@ if [ "${#JS[@]}" -gt 0 ] && have node; then
     for f in "${JS[@]}"; do
       case "$f" in *.ts|*.tsx|*.mts|*.cts) git -C "$(dirname "$f")" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || NEW+=("$f") ;; esac
     done
-    if [ "${#NEW[@]}" -gt 0 ]; then sm_budget "$FAST" "$TMP" node "$LIB/check-ts-types.mjs" "$ROOT" --covered "${NEW[@]}"; keep; fi
+    if [ "${#NEW[@]}" -gt 0 ] && [ "$COMPILER" = yes ]; then sm_budget "$FAST" "$TMP" node "$LIB/check-ts-types.mjs" "$ROOT" --covered "${NEW[@]}"; keep; fi
   fi
   if [ "$TYPES" = off ]; then
-    sm_budget "$FAST" "$TMP" node "$LIB/check-ts-types.mjs" "$ROOT" --syntax "${JS[@]}"; keep
+    if [ "$COMPILER" = yes ]; then sm_budget "$FAST" "$TMP" node "$LIB/check-ts-types.mjs" "$ROOT" --syntax "${JS[@]}"; keep; fi
   elif [ -n "$CUSTOM" ]; then
     for f in "${JS[@]}"; do custom_check "$CUSTOM" "$f"; done
   else

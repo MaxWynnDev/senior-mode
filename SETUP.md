@@ -129,8 +129,11 @@ reviewer briefs as checklists inside `pre-push`.
 - Formatter: `SENIOR_MODE_FORMAT_CMD`.
 - Code check: `SENIOR_MODE_SYNTAX=off` turns it off. `SENIOR_MODE_TYPECHECK=off`
   keeps the parse-level checks and drops the per-edit type check (use it
-  where CI owns the typecheck). `SENIOR_MODE_TYPECHECK_BUDGET` is the
-  seconds the per-edit checker gets, 20 by default.
+  where CI owns the typecheck). `SENIOR_MODE_TYPECHECK=no-compiler` also
+  stops the repo's own TypeScript from being loaded to parse for syntax
+  errors, which leaves the tokenizer and `ast` checks.
+  `SENIOR_MODE_TYPECHECK_BUDGET` is the seconds the per-edit checker
+  gets, 20 by default.
 - The commands the hooks run: `SENIOR_MODE_TYPECHECK_CMD`,
   `SENIOR_MODE_CHECK_FILE_CMD` (`{file}`, `{rel}` and `{dir}` are
   replaced), `SENIOR_MODE_TEST_CMD`, `SENIOR_MODE_TEST_RELATED_CMD`.

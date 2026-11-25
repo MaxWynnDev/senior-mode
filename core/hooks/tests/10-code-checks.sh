@@ -358,6 +358,12 @@ export const a: number = area(2, 3);'
   quiet "typescript: a file that typechecks says nothing" "$(edit "$TSR/src/t3.ts" SENIOR_MODE_TYPECHECK=on)"
   put "$TSR/scripts/outside.ts" 'export const x: number = 1;'
   blocks "typescript: a new file no tsconfig includes is flagged" "$(edit "$TSR/scripts/outside.ts")" "no tsconfig includes this file"
+  # no-compiler: the repo's typescript is never loaded, the tokenizer checks still run
+  put "$TSR/src/t4.ts" 'import { gone } from "./not-here";
+export const broken = (;'
+  out=$(edit "$TSR/src/t4.ts" SENIOR_MODE_TYPECHECK=no-compiler)
+  if [[ "$out" == *"cannot resolve"* ]] && [[ "$out" != *": TS1"* ]]; then ok "typescript: no-compiler keeps the import check and never loads the compiler"; else fail "typescript: no-compiler mode: $out"; fi
+  blocks "typescript: the same file with the compiler allowed reports the syntax error too" "$(edit "$TSR/src/t4.ts")" ": TS1"
 else
   ok "code check: (typescript fixture absent) compiler cases skipped"
 fi

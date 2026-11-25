@@ -35,7 +35,9 @@ straight through. v7 reads the code.
   repo configures one, `go vet`, `cargo check`, or `commands.check_file`
   from the stack profile. A run past the budget is stopped, and two in a
   row turn the tier off for the session. `SENIOR_MODE_TYPECHECK=off`
-  turns it off for a repo where CI owns the typecheck.
+  turns it off for a repo where CI owns the typecheck, and
+  `SENIOR_MODE_TYPECHECK=no-compiler` also keeps the repo's TypeScript
+  from being loaded to parse, so only the tokenizer and `ast` checks run.
 - A new TypeScript file that no tsconfig includes is flagged, because
   the type checker never sees it.
 - Findings come back as a PostToolUse block with the lines in the
