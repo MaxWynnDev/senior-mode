@@ -42,7 +42,7 @@ you did not fire.
 bash core/hooks/test-checklist.sh
 ```
 
-285 cases against scratch git repos where bun and typescript are present
+287 cases against scratch git repos where bun and typescript are present
 (CI installs both on Linux; the OpenCode plugin and compiler cases skip
 without them): every deny and allow path, the worktree case, the
 stop-hook loop backstop, all five shims, each adapter's generated

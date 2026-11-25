@@ -93,8 +93,8 @@ straight through. v7 reads the code.
 
 ### Harness
 
-- 285 cases on Linux, where CI installs bun and typescript (278 lines on
-  macOS and 279 on Windows, where those cases skip). The 134 new ones
+- 287 cases on Linux, where CI installs bun and typescript (278 lines on
+  macOS and 279 on Windows, where those cases skip). The 136 new ones
   live in `core/hooks/tests/` and `test-checklist.sh` sources them.
 - I wrote v7 in a session that couldn't run node, python or a bash
   script, so the first CI run was the first run of any of it. It passed

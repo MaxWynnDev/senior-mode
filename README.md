@@ -227,7 +227,7 @@ Plainly, so nobody has to find out the hard way:
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
   The v6 stop hook ran in a live Claude Code 2.1.330 session: an answer
   ending in "I haven't tested it" came back once with the undone-work
-  block, and the corrected answer went through. The harness (285 cases
+  block, and the corrected answer went through. The harness (287 cases
   on Linux, where CI installs bun and typescript; the cases that need
   them skip on macOS and Windows) runs on every push on all three.
 - The v7 code checks have run in the harness and not yet inside a live
