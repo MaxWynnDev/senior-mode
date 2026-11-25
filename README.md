@@ -230,14 +230,16 @@ Plainly, so nobody has to find out the hard way:
   block, and the corrected answer went through. The harness (287 cases
   on Linux, where CI installs bun and typescript; the cases that need
   them skip on macOS and Windows) runs on every push on all three.
-- The v7 code checks have run in the harness and not yet inside a live
-  agent session. Every one has a case that must block and a case that
-  must stay quiet, on all three platforms. Claude Code documents that a
-  PostToolUse `decision: "block"` puts the reason next to the tool
-  result. I haven't confirmed that Codex, Copilot, Factory or Devin show
-  a post-edit hook's output to the model. The Cursor, Gemini and
-  OpenCode shims drop it, so on those three the commit gate is what
-  blocks: it runs the same checks on the staged files.
+- The v7 code checks ran in a live Claude Code 2.1.332 session on
+  Windows, through the global install. I had it write a file that
+  imported a name `./math` doesn't export and called `add` with three
+  arguments. The transcript records a `PostToolUse:Write` block with
+  both findings, and the model answered them. In the harness every
+  check has a case that must block and a case that must stay quiet, on
+  all three platforms. I haven't confirmed that Codex, Copilot, Factory
+  or Devin show a post-edit hook's output to the model. The Cursor,
+  Gemini and OpenCode shims drop it, so on those three the commit gate
+  is what blocks: it runs the same checks on the staged files.
 - The code checks skip what they can't decide: a bundler alias with no
   tsconfig entry, an overloaded function, a generic call, CommonJS
   exports, a Python import inside `try`. A miss costs nothing and a

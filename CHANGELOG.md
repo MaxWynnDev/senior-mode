@@ -107,10 +107,11 @@ straight through. v7 reads the code.
 
 ### What I haven't verified
 
-- The post-edit block inside a live agent. Claude Code's hook reference
-  documents `decision: "block"` on PostToolUse. I haven't watched it
-  land in a session yet, and I don't know what Codex, Copilot, Factory
-  or Devin do with it.
+- The post-edit block on any agent but Claude Code. In a Claude Code
+  2.1.332 session on Windows it lands: the transcript records a
+  `PostToolUse:Write` block carrying a missing export and a wrong
+  argument count, and the model answered both. I don't know what Codex,
+  Copilot, Factory or Devin do with a block on that event.
 - pyright, mypy, `go vet` and `cargo check` as the tier 2 checker. The
   harness drives that tier with a stand-in command. The TypeScript path
   runs for real on the Linux leg.
