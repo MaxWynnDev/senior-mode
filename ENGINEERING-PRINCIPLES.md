@@ -530,3 +530,22 @@ hours, more than once.
 - **A green suite is not a look.** For UI, fetch the artifact (the
   screenshot, the rendered page) and look at it. Passing assertions
   describe what was asserted, nothing more.
+- A suppression changes the oracle. `@ts-ignore`, a cast to `any`,
+  `# type: ignore` and `eslint-disable` each make the checker accept
+  what it just rejected. Adding one to get green is the same move as
+  deleting a failing test. Fix the error, or put the reason on the line
+  where the next reader sees it. The same goes for a strict flag turned
+  off and for `|| true` after the check.
+- `tsc file.ts` checks a different project. With files on the command
+  line the compiler ignores tsconfig.json and runs on default options. A
+  source file that no tsconfig includes is never checked at all. Before
+  you trust a clean typecheck, know which files it read.
+- An off by one passes every check that reads code. `<` and `<=` both
+  parse and both typecheck. Only a test at the edge can fail on the
+  wrong one, so ask the tests directly: flip the boundary and see
+  whether anything goes red (`boundary-probe.sh`). A flip that stays
+  green is a boundary nothing proves.
+- An import can name a package that doesn't exist, or one that exists
+  because someone registered the name. Resolve every import against the
+  repo before you build on it, and look a new package name up before you
+  install it.

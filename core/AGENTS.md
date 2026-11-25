@@ -95,7 +95,8 @@ Invoke by name; each is a checklist with a stop condition. They live in
 `go` (verify, simplify, review, commit), `review`, `pre-push`, `iterate
 <check>`, `ship`, `worktree`, `learn`, `techdebt`, `incident`, `standup`,
 `loc-budget`, `tenant-audit`, `migration-ritual`, `audit-prompt`,
-`new-ai-feature`. Source of truth: `.senior-mode/commands/`.
+`new-ai-feature`, `boundary` (probe the edges a diff added). Source of
+truth: `.senior-mode/commands/`.
 
 ## Reviewers
 
@@ -135,7 +136,13 @@ feature import them; the rest read the index at session start.
 
 ## Agent wiring (generated; edit the source in `.senior-mode/`, then re-run install)
 
-- Hooks (commit and push gates, senior checks, formatter): `.senior-mode/hooks/`.
+- After an edit a hook reads the file and may block with findings (an
+  import that names nothing, a wrong argument count, a type error). Fix
+  them, or say which finding is wrong and why. Before you call source
+  work done, run `bash .senior-mode/hooks/check.sh` (the full typecheck,
+  with a receipt). Never add `@ts-ignore`, a cast to `any`,
+  `# type: ignore` or `|| true` to get a check green.
+- Hooks (commit and push gates, senior checks, formatter, code check): `.senior-mode/hooks/`.
   Wired for: <claude: .claude/settings.json | codex: .codex/hooks.json |
   cursor: .cursor/hooks.json | gemini: .gemini/settings.json | copilot:
   .github/hooks/senior-mode.json | opencode: .opencode/plugins/senior-mode.ts>.

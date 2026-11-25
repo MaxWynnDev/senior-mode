@@ -5,9 +5,10 @@ before you see the answer.
 
 One setup that makes a coding agent behave like a senior engineer, for
 whichever agent you use: hooks that fire a checklist at the moment of
-decision, commit and push gates that refuse half-done work, a doctrine of
-how a green check lies to you, path-scoped rules, specialist reviewers,
-and a memory of how you like to work. One source of truth in the repo,
+decision, checks that read the code after every edit, commit and push
+gates that refuse half-done work, a doctrine of how a green check lies to
+you, path-scoped rules, specialist reviewers, and a memory of how you
+like to work. One source of truth in the repo,
 generated wiring per agent, a stack profile picked from evidence.
 
 Adapters for **Claude Code, Codex CLI, Cursor, Gemini CLI, GitHub
@@ -53,9 +54,10 @@ the prompting guide, and `/review`.
 
 ### 2. The full kit (repo root)
 
-For a project you ship from. Adds commit and push gates, parallel-session
-safety, six review subagents, fifteen procedures, a multi-agent audit
-workflow, auto-formatting, and a stack profile picked from the repo.
+For a project you ship from. Adds the code checks after every edit,
+commit and push gates, parallel-session safety, six review subagents,
+sixteen procedures, a multi-agent audit workflow, auto-formatting, and a
+stack profile picked from the repo.
 
 ```bash
 bash senior-mode/install.sh --dry-run /path/to/your-repo      # see what would happen, for the agents it finds
@@ -130,6 +132,48 @@ runs as green five times in two months on one project.
 
 ![A piped CI watcher is denied; the redirect recipe surfaces the real exit code](docs/pipe.gif)
 
+**It reads the code after every edit.** Until v7 the kit watched how the
+agent behaved and never opened the file. Now a post-edit hook reads what
+was just written and blocks on:
+
+- an import that names nothing: no file at that path, no package in the
+  manifest, the lockfile or `node_modules`, no tsconfig alias
+- a named import the module doesn't export
+- a call to one of your own functions with the wrong number of arguments
+- `arr[arr.length]`, and a loop to `<= length` that indexes with it
+
+JS and TS run on `node` with a tokenizer that ships in the kit, so a
+worktree with no `node_modules` gets the same checks. Python runs on the
+project's own interpreter and `ast`. Go, Ruby, shell and JSON get a
+parse. Nothing is installed.
+
+Then the real checker runs on that one file inside a 20 second budget:
+your repo's own TypeScript, pyright or mypy, `go vet`, `cargo check`.
+`SENIOR_MODE_TYPECHECK=off` turns that tier off where CI owns the
+typecheck.
+
+**The checker can't be quieted to get green.** The commit gate denies a
+new `@ts-ignore`, a cast to `any`, a bare `# type: ignore` or an
+`eslint-disable` that carries no reason, and a diff that turns a strict
+flag off. `|| true` after a checker is denied. So is `tsc file.ts`
+beside a tsconfig, because tsc ignores the tsconfig when you pass it
+files. `check.sh` runs the full typecheck and writes a receipt, and the
+stop hook asks for it when the turn edited source and nothing ran since.
+
+**An off by one has no syntax.** Nothing can read `<` and know it should
+have been `<=`. `boundary-probe.sh` flips each comparison and each `+ 1`
+or `- 1` on the lines your diff added, then runs the tests. A flip that
+stays green is a boundary no test pins.
+
+**A package gets looked up before it gets installed.** An invented import
+is usually followed by an install of the invented name.
+`package-install-guard.sh` asks the registry first. It denies a name the
+registry doesn't have, and denies once a name almost nobody downloads.
+
+It still isn't a type checker or a linter. It runs yours at the moment
+of the edit and checks that the full one ran. An off by one with no test
+near it comes back as an unpinned boundary for you to pin.
+
 **The gates read the repo you are actually in.** `git push` is denied
 unless HEAD carries a `Senior-Checklist:` trailer with five graded keys
 (ambiguity, summary, concurrency, regression, blast). A commit is denied
@@ -183,9 +227,22 @@ Plainly, so nobody has to find out the hard way:
   (Codex's hook file format was checked against a live `~/.codex/hooks.json`).
   The v6 stop hook ran in a live Claude Code 2.1.330 session: an answer
   ending in "I haven't tested it" came back once with the undone-work
-  block, and the corrected answer went through. The harness (149 cases,
-  151 where bun is installed) runs on every push on Linux, macOS, and
-  Windows.
+  block, and the corrected answer went through. The harness (285 cases
+  on Linux, where CI installs bun and typescript; the cases that need
+  them skip on macOS and Windows) runs on every push on all three.
+- The v7 code checks have run in the harness and not yet inside a live
+  agent session. Every one has a case that must block and a case that
+  must stay quiet, on all three platforms. Claude Code documents that a
+  PostToolUse `decision: "block"` puts the reason next to the tool
+  result. I haven't confirmed that Codex, Copilot, Factory or Devin show
+  a post-edit hook's output to the model. The Cursor, Gemini and
+  OpenCode shims drop it, so on those three the commit gate is what
+  blocks: it runs the same checks on the staged files.
+- The code checks skip what they can't decide: a bundler alias with no
+  tsconfig entry, an overloaded function, a generic call, CommonJS
+  exports, a Python import inside `try`. A miss costs nothing and a
+  wrong finding sends the agent to fix correct code, so I tuned them to
+  miss.
 - **Validated against official docs and the harness, not inside the
   agent:** the Cursor, Gemini, Devin, Copilot, and Augment shims
   (payloads are tested against the real hook scripts), and the Copilot,
@@ -228,10 +285,12 @@ senior-mode/
 
   core/                      the source of truth
     AGENTS.md  CLAUDE.md    the entry-point templates installed into your repo
-    hooks/                   9 wired, 2 optional, 1 test harness
+    hooks/                   10 wired, 2 optional, 2 you run (check.sh,
+                             boundary-probe.sh), lib/ (the code checkers),
+                             the test harness and its cases in tests/
     rules/                   5 stack-neutral path rules
     reviewers/               6 briefs: 5 read-only reviewers + 1 app verifier
-    commands/                15 procedures
+    commands/                16 procedures
     memory/                  working-style preferences that travel with you
 
   adapters/                  one generator per agent + the Cursor and Gemini shims + the capability matrix
@@ -259,6 +318,17 @@ these is a file or a line you can delete.
   generated wiring if it is not worth it to you.
 - **400 lines per new file.** Enforced at commit. Raise the number in
   `pre-commit-audit.sh`, or add the exception comment.
+- The code check blocks after an edit. A finding comes back as a block
+  the agent has to answer before its next step. `SENIOR_MODE_SYNTAX=off`
+  turns it off, and `SENIOR_MODE_TYPECHECK=off` keeps the parse-level
+  checks and drops the per-edit type check.
+- A suppression needs its reason on the line. `@ts-ignore` is denied
+  outright. `@ts-expect-error`, `eslint-disable`, `# type: ignore` and a
+  cast to `any` pass with a reason beside them. Delete check 1d in
+  `pre-commit-audit.sh` if your codebase isn't there yet.
+- The install guard calls the registry. It sends the package name to
+  npm or PyPI, the same place the install is about to go, and nothing
+  else. `SENIOR_MODE_INSTALL_LOOKUP=off` turns it off.
 - **Thoroughness over token thrift.** The doctrine says spend what the
   task warrants. Soften it in `AGENTS.md` if your budget disagrees.
 - **The memory bundle assumes you trust the agent with operational CLIs**
@@ -272,8 +342,13 @@ these is a file or a line you can delete.
 - `bash` on PATH (Git Bash on Windows; the hooks are bash scripts and run
   on macOS, Linux, and Windows).
 - `git`.
-- Optional: `node` for JSON validation in the harness; `ANTHROPIC_API_KEY`
-  for the counterfactual verifier hook.
+- Nothing else to install. The code checks borrow what your repo's
+  language already put on the machine: `node` in a JS or TS repo (plus
+  the repo's own `typescript` for the type tier), the project's `python`
+  in a Python repo, `gofmt`, `ruby`. A missing runtime skips that
+  language.
+- Optional: `curl` for the install lookup; `ANTHROPIC_API_KEY` for the
+  counterfactual verifier hook.
 
 ## Contributing
 

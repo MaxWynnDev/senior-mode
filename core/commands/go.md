@@ -35,6 +35,11 @@ Give the change a real feedback loop before any polish:
    Static green plus an undriven runtime path is NOT verified.
 3. Run the full project check (lint/typecheck + unit suite) once at the
    end of this step. Read counts, not just the exit code.
+   `bash .senior-mode/hooks/check.sh` runs the typecheck with its exit
+   code intact and writes the receipt the stop hook looks for.
+4. If the diff adds a comparison, a slice, a range or a `+ 1` / `- 1`,
+   run the `boundary` procedure. A flip that survives means no test
+   pins that edge, so write the test before you commit.
 
 ## Step 2: SIMPLIFY (only what changed)
 

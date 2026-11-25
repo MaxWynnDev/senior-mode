@@ -75,6 +75,17 @@ back undone work. That part needs the answer text in the hook payload:
 no answer text, so the check is skipped there, and any agent that does
 not send the field skips it the same way.
 
+The Formatter column is also where the code check runs:
+`post-edit-format.sh` formats, then hands the file to
+`post-edit-check.sh`, whose findings come back as a PostToolUse
+`decision: block`. Claude Code documents that the reason lands next to
+the tool result. I haven't confirmed what Codex, Copilot, Factory, Devin
+or Augment do with a block on that event. The Cursor and Gemini shims
+answer `{}` for the edit event and the OpenCode plugin ignores the
+script's output, so on those three the findings never reach the model
+after the edit. They reach it at `git commit`, where the commit gate runs
+the same checks on the staged files and denies.
+
 Notes on the last two rows: Windsurf has a `.windsurf/hooks.json` with a
 different stdin shape (`tool_info`), Kiro has `.kiro/hooks/*.json` with an
 undocumented stdin contract, Junie's hooks are user-level only

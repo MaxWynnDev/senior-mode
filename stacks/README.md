@@ -35,7 +35,7 @@ agent picks one from evidence, not memory.
 | File | Purpose |
 |---|---|
 | `detect.txt` | detection signals with weights (`file`, `glob`, `grep`) |
-| `profile.json` | the card (title, recommended_for, not_for) and the facts: commands, layout globs, LOC budgets, migration tool, which reviewers apply, how the app-verifier boots the app |
+| `profile.json` | the card (title, recommended_for, not_for) and the facts: commands, layout globs, LOC budgets, migration tool, which reviewers apply, how the app-verifier boots the app. The hooks read `commands` too: `typecheck` (`check.sh` and the Stop hook's receipt), `test` (`boundary-probe.sh`), and two optional keys, `check_file` (the per-edit checker; `{file}`, `{rel}` and `{dir}` are replaced) and `test_related` (a test command that takes `{file}`). Leave `check_file` out for TypeScript, Python, Go and Rust: the hook finds the repo's own checker |
 | `README.md` | assumptions, platform notes, what to adapt for sibling frameworks |
 | `WORKFLOW.md` | the concrete deploy pipeline and migration-runner properties |
 | `rules/*.md` | path-scoped rules with real helper names (Claude frontmatter `paths:`; other adapters derive their own scoping from it) |

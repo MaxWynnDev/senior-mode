@@ -169,6 +169,17 @@ unsure. Print what stays.
 ### 7. Run the harness and report
 
 Run `bash .senior-mode/hooks/test-checklist.sh` and paste the last line.
+
+Then check the code check has what it needs here, and print one line
+each: which typecheck command `bash .senior-mode/hooks/check.sh` would
+run (run it once and paste its last line; if it says no command is
+known, ask me for it and tell me to set `SENIOR_MODE_TYPECHECK_CMD`),
+and whether `node` or the project's `python` is on PATH for the
+per-edit checks. If you are Claude Code, tell me the language server
+plugin for this stack (`/plugin install typescript-lsp@claude-plugins-official`,
+or `pyright-lsp`, `gopls-lsp`, `rust-analyzer-lsp`): with one installed
+you get the server's diagnostics after each edit as well.
+
 Then print the "ready to work" summary: agent, wiring file, stack and
 profile, placeholders filled (count) and open (list), `.senior-mode`
 files merged (list), memory location, reviewers kept, harness result.

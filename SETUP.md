@@ -16,7 +16,7 @@ What lands where:
 | `.senior-mode/hooks/` | the hook scripts and the test harness | every adapter's wiring points here |
 | `.senior-mode/rules/` | the stack-neutral rules (and the profile's rules when a stack is installed) | adapters copy or transform them; `AGENTS.md` points here for agents without scoping |
 | `.senior-mode/reviewers/` | the six review briefs | adapters turn them into subagents |
-| `.senior-mode/commands/` | the fifteen procedures | adapters turn them into commands and skills |
+| `.senior-mode/commands/` | the sixteen procedures | adapters turn them into commands and skills |
 | `.senior-mode/memory/` | the working-style memory bundle | Claude Code moves it into auto-memory; others read the index |
 | `.senior-mode/adapters/` | the Cursor and Gemini shims | their hooks |
 | `.senior-mode/stacks/` | `detect.sh`, every profile's card and signals, the installed profile in full | the kickoff's picker; the agent reads `profile.json` for commands |
@@ -66,10 +66,14 @@ map that to each agent (see `adapters/README.md`).
 | `session-tree-guard.sh` | PreToolUse Bash | BLOCKS commit, push, merge, rebase from a shared checkout for a non-incumbent session. One-shot override: `SENIOR_MODE_ALLOW_SHARED_GIT=1`. |
 | `senior-check-before.sh` | prompt submit | Injects the BEFORE checklist (ambiguity, 100% version, evidence, never cite unread, finish in this turn) at the decision moment. Silent on a background-task notification. |
 | `ultracode-advisor.sh` | prompt submit | Names the reviewer to run (`money-path-reviewer`, `tenant-isolation-reviewer`, `migration-reviewer`, or the pre-push fan-out) when the prompt or the working diff hits money, migrations, auth, PII, security, or a large refactor. Advisory. It never starts a workflow; that stays your call. |
-| `pre-commit-audit.sh` | PreToolUse Bash | DENIES a commit with a bare `TODO`/`FIXME`, a `console.log` in a prod path, or a new source file over 400 LOC without a `PRINCIPLES: max-lines-exception:` comment. Self-filters to git commit commands. Audits what a chained `git add` or a `commit -a` is about to stage, through a scratch index. |
+| `pre-commit-audit.sh` | PreToolUse Bash | DENIES a commit with a bare `TODO`/`FIXME`, a `console.log` in a prod path, or a new source file over 400 LOC without a `PRINCIPLES: max-lines-exception:` comment. DENIES a new checker suppression with no reason (`@ts-ignore`, a cast to `any`, a bare `# type: ignore`, `eslint-disable`, `//nolint`), a loosened checker config (a strict flag off, `ignoreBuildErrors`, a longer tsconfig `exclude`), and staged source that fails the code check; `SENIOR_MODE_ALLOW_SYNTAX=1` in front of the commit passes a finding you can show is wrong. Self-filters to git commit commands. Audits what a chained `git add` or a `commit -a` is about to stage, through a scratch index. |
 | `pre-push-checklist.sh` | PreToolUse Bash | DENIES a push unless HEAD carries the `Senior-Checklist:` trailer with all five keys graded. Validates the repo the push runs FROM. |
-| `exit-code-mask-guard.sh` | PreToolUse Bash | DENIES piping a CI watcher through `tail`/`head`/`grep` (the pipe's exit code replaces the run's). The deny message has the redirect recipe. |
-| `post-edit-format.sh` | PostToolUse Write/Edit | Formats the edited file with biome, prettier, ruff, black, gofmt, rustfmt, or deno fmt (auto-detected, project-local first), or `SENIOR_MODE_FORMAT_CMD`. |
+| `exit-code-mask-guard.sh` | PreToolUse Bash | DENIES piping a CI watcher through `tail`/`head`/`grep` (the pipe's exit code replaces the run's). The deny message has the redirect recipe. Also DENIES `\|\| true` after a type checker, linter or test runner, and `tsc` with source files beside a tsconfig (tsc ignores the tsconfig then). |
+| `package-install-guard.sh` | PreToolUse Bash | Before an install of a package the repo has never used, asks npm or PyPI about the name. DENIES a name the registry doesn't have, and denies once an npm name under 300 downloads a week. Sends the name and nothing else. Needs `curl`; allows on any answer it doesn't recognise. `SENIOR_MODE_INSTALL_LOOKUP=off`. |
+| `post-edit-format.sh` | PostToolUse Write/Edit | Formats the edited file with biome, prettier, ruff, black, gofmt, rustfmt, or deno fmt (auto-detected, project-local first), or `SENIOR_MODE_FORMAT_CMD`. Then runs `post-edit-check.sh` on the same file. |
+| `post-edit-check.sh` | (run by the formatter hook) | Reads the edited file and BLOCKS with what it finds: an import that names nothing, a named import the module doesn't export, a call to a repo function with the wrong number of arguments, an index that is always one past the end, a syntax error. Then runs the real checker on that file inside a budget (the repo's own TypeScript, pyright or mypy, `go vet`, `cargo check`, or `commands.check_file`). Uses `node` or the project's `python` when they're there and installs nothing. |
+| `check.sh` | (you or the agent run it) | `bash .senior-mode/hooks/check.sh [typecheck\|lint\|test]` runs the repo's full check with the exit code intact and writes a receipt. The Stop hook asks for it when the turn edited source and no receipt is newer than the last edit. |
+| `boundary-probe.sh` | (you or the agent run it) | Flips each comparison and each `+ 1` / `- 1` on the lines a diff added, runs the tests, and reports the flips that stayed green. The `boundary` procedure wraps it. |
 | `senior-check-after.sh` | Stop | Reads the final answer and blocks it when it hands back undone work ("what I didn't do", "I haven't tested", an "Open items" heading), twice at most per turn, push turns included. Blocks once per turn with the AFTER checklist (corners cut? senior pushback? could the green have gone red?) on a turn that ran a command or edited a file, and asks for the `[AFTER-AUDIT]` block. State per session; 3 blocks in one turn at most. |
 | `senior-verify-counterfactual.sh` (optional) | Stop | Asks a small model whether the `Without senior mode` line of the `[AFTER-AUDIT]` block names a real catch. Needs `ANTHROPIC_API_KEY` and `node`. Not wired by default. |
 | `ship-policy.sh` (optional) | prompt submit | One-line standing reminder that behaviour changes ship through the `ship` procedure. Not wired by default. |
@@ -111,7 +115,7 @@ whose domain your repo lacks; the kickoff asks.
 Procedures (`.senior-mode/commands/`, wired as slash commands and as
 Agent Skills): `go`, `ship`, `iterate`, `review`, `pre-push`, `worktree`,
 `learn`, `techdebt`, `incident`, `standup`, `loc-budget`, `tenant-audit`,
-`migration-ritual`, `audit-prompt`, `new-ai-feature`; the reference
+`migration-ritual`, `audit-prompt`, `new-ai-feature`, `boundary`; the reference
 profile adds `stage` and `qa-sweep`. Agents without subagents run the
 reviewer briefs as checklists inside `pre-push`.
 
@@ -123,6 +127,16 @@ reviewer briefs as checklists inside `pre-push`.
 - High-stakes signals: `ultracode-advisor.sh`.
 - Session TTL: `SENIOR_MODE_SESSION_TTL_MIN` (default 45).
 - Formatter: `SENIOR_MODE_FORMAT_CMD`.
+- Code check: `SENIOR_MODE_SYNTAX=off` turns it off. `SENIOR_MODE_TYPECHECK=off`
+  keeps the parse-level checks and drops the per-edit type check (use it
+  where CI owns the typecheck). `SENIOR_MODE_TYPECHECK_BUDGET` is the
+  seconds the per-edit checker gets, 20 by default.
+- The commands the hooks run: `SENIOR_MODE_TYPECHECK_CMD`,
+  `SENIOR_MODE_CHECK_FILE_CMD` (`{file}`, `{rel}` and `{dir}` are
+  replaced), `SENIOR_MODE_TEST_CMD`, `SENIOR_MODE_TEST_RELATED_CMD`.
+  Without them the hooks read `commands` in the stack profile.
+- Install lookup: `SENIOR_MODE_INSTALL_LOOKUP=off`, and
+  `SENIOR_MODE_INSTALL_MIN_DOWNLOADS` for the weekly floor (300).
 - The AFTER check skips a turn with no command and no edit. Only shell
   and edit tools count, so a turn that only called MCP tools is skipped
   too. `SENIOR_MODE_AFTER_ALWAYS=1` runs it on every turn. Delete the Stop

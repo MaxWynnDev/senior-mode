@@ -42,15 +42,20 @@ you did not fire.
 bash core/hooks/test-checklist.sh
 ```
 
-98 cases against scratch git repos (100 where bun is installed, which runs
-the OpenCode plugin cases): every deny and allow path, the worktree
-case, the stop-hook loop backstop, all five shims, each adapter's
-generated matchers and command shapes, the detector's verdicts, and a
-real install. It must print `ALL CASES [ok]`
-before and after your change. CI runs it on Linux, macOS, and Windows.
+285 cases against scratch git repos where bun and typescript are present
+(CI installs both on Linux; the OpenCode plugin and compiler cases skip
+without them): every deny and allow path, the worktree case, the
+stop-hook loop backstop, all five shims, each adapter's generated
+matchers and command shapes, the detector's verdicts, a real install,
+and the code checks in `core/hooks/tests/`. It must print
+`ALL CASES [ok]` before and after your change. CI runs it on Linux,
+macOS, and Windows.
 
 A hook change without a harness case is a change without a test. Add the
-case in the same commit.
+case in the same commit. The code checkers fail open, so a case that
+wants silence also passes when the checker crashes. Give a fixture that
+must stay quiet one line that must be flagged, and assert that finding
+and no other (`only` in `tests/10-code-checks.sh`).
 
 ### Where to make a change
 
@@ -94,6 +99,9 @@ ask you to.
 ### What I will probably say no to
 
 - A dependency. Bash and git is the whole runtime, and that is a feature.
+  The code checks borrow the `node` or `python` a repo's own language
+  already put on the machine and skip without it. They install nothing,
+  and a check that needs a package from a registry isn't one I'll take.
 - An adapter for an agent whose hook contract is not publicly documented.
   Guessing at a payload shape produces a guard that silently never fires.
 - Making a fail-open hook fail closed.

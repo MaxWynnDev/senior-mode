@@ -63,6 +63,7 @@ of these), this is what to change per piece; "keep" means no change.
 | Kit piece | What to adapt |
 |---|---|
 | Hooks (`.senior-mode/hooks/`) | keep; `post-edit-format.sh` auto-detects biome, prettier, ruff, black, gofmt, rustfmt, deno fmt; set `SENIOR_MODE_FORMAT_CMD` for anything else |
+| The code check (`post-edit-check.sh`) | JS, TS, Python, Go, Ruby, shell and JSON work as shipped. For another language set `SENIOR_MODE_CHECK_FILE_CMD` to your compiler's one-file check, and `SENIOR_MODE_TYPECHECK_CMD` to the full one |
 | `pre-commit-audit.sh` source extensions | add yours to the list if missing |
 | `conventions-sweeper` date check | replace with your language's date trap, or delete |
 | `tenant-isolation-reviewer` | keep; name your ORM's scoping helper |

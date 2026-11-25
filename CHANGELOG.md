@@ -1,5 +1,121 @@
 # senior-mode changelog
 
+## v7 (2026-11-25): the hooks read the code
+
+Through v6 the kit watched how the agent behaved: a test that never ran,
+a pipe that hid an exit code, an answer that handed work back. It never
+opened the file the agent had just written. An import that names
+nothing, a call with one argument too many and an off by one all went
+straight through. v7 reads the code.
+
+### After every edit
+
+- `post-edit-format.sh` now hands the edited files to
+  `post-edit-check.sh` once it has formatted them. The check runs in the
+  same process, after the formatter, so the two never race over the
+  file, and an install already wired for the formatter gets it on
+  `--upgrade` with no new entry.
+- JS and TS: `lib/check-js.mjs` reports an import with no file, package
+  or alias behind it, a named import the module doesn't export, a call
+  to a function declared in one of the repo's `.ts` files with too few
+  or too many arguments, `arr[arr.length]`, and a loop to `<= length`
+  that indexes with it. It runs on `node` with its own tokenizer
+  (`lib/js-lex.mjs`), so a worktree with no `node_modules` gets the same
+  checks.
+- Python: `lib/check-py.py` reports a syntax error, an import that isn't
+  in the repo, the standard library, the project's virtualenv or the
+  lockfile, a name a repo module doesn't define, a call whose arguments
+  can't bind, `xs[len(xs)]` and `range(len(xs) + 1)` used as an index.
+  It parses with `ast` and never imports project code.
+- Go gets `gofmt -e`, Ruby `ruby -c`, shell `bash -n`, JSON a parse that
+  lets comments and trailing commas through.
+- Then the real checker runs on the edited files inside a budget
+  (`SENIOR_MODE_TYPECHECK_BUDGET`, 20 seconds): the repo's own
+  TypeScript through `lib/check-ts-types.mjs`, pyright or mypy where the
+  repo configures one, `go vet`, `cargo check`, or `commands.check_file`
+  from the stack profile. A run past the budget is stopped, and two in a
+  row turn the tier off for the session. `SENIOR_MODE_TYPECHECK=off`
+  turns it off for a repo where CI owns the typecheck.
+- A new TypeScript file that no tsconfig includes is flagged, because
+  the type checker never sees it.
+- Findings come back as a PostToolUse block with the lines in the
+  reason. `SENIOR_MODE_SYNTAX=off` turns the whole check off.
+- Nothing is installed. Each check runs on the runtime the repo's own
+  language already put there and skips without it.
+
+### The gates around the checker
+
+- `pre-commit-audit.sh` denies a new `@ts-ignore`, `@ts-nocheck`, a
+  `@ts-expect-error` or `eslint-disable` with no reason, a cast to `any`
+  with no comment (tests excepted), a bare `# type: ignore`, `# noqa` or
+  `//nolint`.
+- It denies a staged change that loosens the checker: a strict flag set
+  to false, `ignoreBuildErrors`, mypy `ignore_errors`, pyright turned
+  off, a tsconfig `exclude` that grew. A comment on the line saying why
+  lets it through.
+- It runs the parse-level checks on the staged source files, which is
+  the block on agents that never show the model a post-edit hook's
+  output. `SENIOR_MODE_ALLOW_SYNTAX=1` in front of the commit passes a
+  finding you can show is wrong.
+- Fixed: a commit with a variable assignment in front
+  (`GIT_AUTHOR_DATE=... git commit`) skipped the whole audit. The
+  matcher wanted `git` at the start of the segment.
+- `exit-code-mask-guard.sh` denies `|| true` and `|| :` after a type
+  checker, a linter or a test runner, and denies `tsc` with source files
+  on the command line beside a tsconfig. The TypeScript handbook says
+  tsc ignores tsconfig.json when it's given files.
+- `package-install-guard.sh` (new, wired on the shell tool in all nine
+  adapters) looks a package name up before an install of a name the repo
+  has never used. It denies a name npm or PyPI doesn't have, and denies
+  once an npm name under 300 downloads a week. It sends the name to the
+  registry and nothing else. `SENIOR_MODE_INSTALL_LOOKUP=off` turns it
+  off.
+
+### Scripts you run
+
+- `check.sh` runs the full typecheck (or lint, or test) with its output
+  in a log and its exit code read straight from the command, and writes
+  a receipt. `senior-check-after.sh` adds a line to the self-audit when
+  the turn edited source and no receipt is newer than the last edit, and
+  when the last receipt is red.
+- `boundary-probe.sh` and the `boundary` procedure. It flips each
+  comparison and each `+ 1` or `- 1` on the lines a diff added, one at a
+  time, runs the tests, and reports the flips that stayed green. It
+  checks the baseline is green first, puts the file back after every
+  flip, and restores it on the next start if a run was killed half way.
+- `lib/profile.sh` is where hooks read the repo's commands: the
+  environment, then the stack profile, then (typecheck only) a
+  `typecheck` script in package.json. `install.sh` writes
+  `.senior-mode/stacks/ACTIVE` so the hooks know which profile is the
+  installed one. A test command is never guessed.
+
+### Harness
+
+- 285 cases on Linux, where CI installs bun and typescript (278 lines on
+  macOS and 279 on Windows, where those cases skip). The 134 new ones
+  live in `core/hooks/tests/` and `test-checklist.sh` sources them.
+- I wrote v7 in a session that couldn't run node, python or a bash
+  script, so the first CI run was the first run of any of it. It passed
+  every new case on all three platforms and failed two old ones: I'd
+  changed the two senior-check hooks and forgotten the starter's copies.
+- That green couldn't have caught a helper that crashes, because the
+  helpers fail open and silence is what half the cases ask for. Each
+  fixture that lists things that must pass now ends with one line that
+  must not, and the case wants that finding and no other.
+
+### What I haven't verified
+
+- The post-edit block inside a live agent. Claude Code's hook reference
+  documents `decision: "block"` on PostToolUse. I haven't watched it
+  land in a session yet, and I don't know what Codex, Copilot, Factory
+  or Devin do with it.
+- pyright, mypy, `go vet` and `cargo check` as the tier 2 checker. The
+  harness drives that tier with a stand-in command. The TypeScript path
+  runs for real on the Linux leg.
+- The registry lookup against the live registries from a hook. I probed
+  both endpoints by hand on 2026-11-25 (404 for a made-up name, a
+  download count for a real one), and the harness uses a stand-in curl.
+
 ## v6 (2026-11-21): the answer ends with what got done
 
 I was getting answers that ended in a list of what the agent didn't do.
