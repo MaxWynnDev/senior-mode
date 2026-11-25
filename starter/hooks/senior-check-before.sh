@@ -10,8 +10,8 @@
 # it matters instead of being quoted after the fact.
 #
 # Also clears the per-turn state senior-check-after.sh keeps (the stop
-# sentinel, the undone-work count, the worked marker, the push flag), so
-# the Stop hook starts this turn fresh.
+# sentinel, the undone-work count, the worked marker, the push flag, the
+# list of edited source files), so the Stop hook starts this turn fresh.
 #
 # A background-task notification is not a prompt from the user. Claude
 # Code runs prompt hooks for those too, with the notification as the
@@ -37,7 +37,8 @@ SESSION_ID=$(printf '%s' "$FLAT" | grep -oE '"session_id"[[:space:]]*:[[:space:]
 T="${TMPDIR:-/tmp}"
 ID="${SESSION_ID:-unknown}"
 rm -f "$T/claude-senior-stop-$ID" "$T/claude-senior-undone-$ID" \
-      "$T/claude-senior-worked-$ID" "$T/claude-push-done-$ID" 2>/dev/null || true
+      "$T/claude-senior-worked-$ID" "$T/claude-push-done-$ID" \
+      "$T/claude-senior-edited-$ID" 2>/dev/null || true
 
 cat <<'EOF'
 {

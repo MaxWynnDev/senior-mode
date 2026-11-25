@@ -32,6 +32,15 @@ blocks() { # <name> <output> <text the block must carry>
 quiet() { # <name> <output>
   if [ -z "$2" ]; then ok "$1"; else fail "$1 (wanted no output)"; printf '%s\n' "$2" | head -6; fi
 }
+# The helpers fail open, so silence alone could mean one crashed on the
+# fixture. A fixture full of things that must pass therefore ends with one
+# line that must not, and the case wants that finding and no other.
+only() { # <name> <output> <file name> <text of the control finding>
+  local n
+  n=$(printf '%s' "$2" | grep -o "$3:[0-9]" | wc -l | tr -d '[:space:]')
+  if [[ "$2" == *'"decision": "block"'* ]] && [[ "$2" == *"$4"* ]] && [ "$n" = 1 ]; then ok "$1"
+  else fail "$1 (wanted the control finding '$4' and nothing else, saw $n findings)"; printf '%s\n' "$2" | head -6; fi
+}
 
 if [ "$SX_NODE" = no ]; then
   ok "code check: (node absent) JS and TS cases skipped"
@@ -67,7 +76,8 @@ import type { Shape } from "./math.js";
 import Widget, { size } from "./widget";
 console.info(add(1, 2), size, Widget);
 export type S = Shape;'
-  quiet "import: a file found by extension, a .js specifier for a .ts file, a default import" "$(edit "$R/src/a2.ts")"
+  printf '%s\n' 'import ctl from "./control-not-here";' >> "$R/src/a2.ts"
+  only "import: a file found by extension, a .js specifier for a .ts file, a default import" "$(edit "$R/src/a2.ts")" "a2.ts" "control-not-here"
   put "$R/src/a3.ts" 'import magic from "totally-invented-pkg";'
   blocks "import: a package nobody declared is blocked" "$(edit "$R/src/a3.ts")" "totally-invented-pkg"
   put "$R/src/a4.ts" 'import pad from "left-pad";
@@ -81,7 +91,8 @@ import styles from "./a4.module.css?inline";
 const lazy = () => import("left-pad");
 const old = require("left-pad");'
   put "$R/src/a4.module.css" '.a {}'
-  quiet "import: declared, scoped, installed, locked and builtin packages all pass" "$(edit "$R/src/a4.ts")"
+  printf '%s\n' 'import ctl from "./control-not-here";' >> "$R/src/a4.ts"
+  only "import: declared, scoped, installed, locked and builtin packages all pass" "$(edit "$R/src/a4.ts")" "a4.ts" "control-not-here"
   put "$R/src/a5.ts" 'import { add } from "@/math";'
   quiet "import: a tsconfig path alias that resolves" "$(edit "$R/src/a5.ts")"
   put "$R/src/a6.ts" 'import { add } from "@/nowhere/math";'
@@ -90,7 +101,8 @@ const old = require("left-pad");'
 import y from "~/aliased/by/the/bundler";
 import z from "$lib/thing";
 import w from "./generated/client";'
-  quiet "import: virtual modules, bundler aliases and generated paths are left alone" "$(edit "$R/src/a7.ts")"
+  printf '%s\n' 'import ctl from "./control-not-here";' >> "$R/src/a7.ts"
+  only "import: virtual modules, bundler aliases and generated paths are left alone" "$(edit "$R/src/a7.ts")" "a7.ts" "control-not-here"
 
   # --- named imports the module does not export --------------------------------
   put "$R/src/b1.ts" 'import { subtract } from "./math";'
@@ -99,7 +111,8 @@ import w from "./generated/client";'
 import { whatever } from "./legacy";
 console.info(add, plus, whatever);
 export type T = Shape;'
-  quiet "export: names through export *, a renamed re-export, and a CommonJS module" "$(edit "$R/src/b2.ts")"
+  printf '%s\n' 'import { controlMissing } from "./math";' >> "$R/src/b2.ts"
+  only "export: names through export *, a renamed re-export, and a CommonJS module" "$(edit "$R/src/b2.ts")" "b2.ts" "controlMissing"
   put "$R/src/b3.ts" 'import Nope from "./math";'
   blocks "export: a default import from a module with no default is blocked" "$(edit "$R/src/b3.ts")" "no default export"
 
@@ -122,7 +135,8 @@ export const g = add(...[1, 2] as const);
 export const h = add(new Map<string, number>().size, 2);
 export function wrap(add: (x: number) => number) { return add(1); }
 export const i = [1, 2].map((n) => add(n, n));'
-  quiet "arity: optional, default, rest, overloads, a JS declaration, a spread, a generic, a shadowing parameter" "$(edit "$R/src/c3.ts")"
+  printf '%s\n' 'export const ctl = twice();' >> "$R/src/c3.ts"
+  only "arity: optional, default, rest, overloads, a JS declaration, a spread, a generic, a shadowing parameter" "$(edit "$R/src/c3.ts")" "c3.ts" "this call passes 0"
   put "$R/src/c4.ts" 'function area(w: number, h: number): number { return w * h; }
 export const x = area(3);'
   blocks "arity: a function declared in the same file is checked too" "$(edit "$R/src/c4.ts")" "area() takes 2 arguments"
@@ -143,7 +157,8 @@ export const x = area(3);'
   for (let i = 1; i <= xs.length; i++) { t += xs[i - 1]; }
   return t + xs[xs.length - 1];
 }'
-  quiet "bounds: an append, a < loop, and a 1-based loop pass" "$(edit "$R/src/d3.ts")"
+  printf '%s\n' 'export const ctl = (ys: number[]) => ys[ys.length];' >> "$R/src/d3.ts"
+  only "bounds: an append, a < loop, and a 1-based loop pass" "$(edit "$R/src/d3.ts")" "d3.ts" "ys[ys.length] reads one past"
 
   # --- text that looks like code and is not ------------------------------------------
   put "$R/src/e1.tsx" 'import { add } from "./math";
@@ -156,7 +171,8 @@ export function View() {
   return <p title="it'"'"'s">Don'"'"'t call add(1, 2, 3) here: it'"'"'s text {add(1, 2)} </p>;
 }
 export const all = [doc, re, text];'
-  quiet "lexer: comments, templates, regexes, strings and JSX text are not code" "$(edit "$R/src/e1.tsx")"
+  printf '%s\n' 'export const ctl = add(1);' >> "$R/src/e1.tsx"
+  only "lexer: comments, templates, regexes, strings and JSX text are not code" "$(edit "$R/src/e1.tsx")" "e1.tsx" "this call passes 1"
 
   # --- JSON --------------------------------------------------------------------------
   put "$R/data.json" '{ "a": 1, "b": [1, 2 }'
@@ -214,7 +230,8 @@ else:
     import zz_tomli_backport as tomllib
 
 print(os, j, requests, yaml, util, clamp(1, 0), clamp(1, 0, 5, strict=True), LIMIT, anything(1, 2, 3, x=4))'
-  quiet "python: stdlib, locked, relative, guarded and version-gated imports pass, and so do good calls" "$(edit "$P/app/f5.py")"
+  printf '%s\n' 'import app.control_missing' >> "$P/app/f5.py"
+  only "python: stdlib, locked, relative, guarded and version-gated imports pass, and so do good calls" "$(edit "$P/app/f5.py")" "f5.py" "app.control_missing"
   put "$P/app/f6.py" 'from .util import clamp
 
 a = clamp(1, 2, 3, 4)'
@@ -253,6 +270,29 @@ put "$S/bad.sh" 'if [ -f x ]; then
 blocks "shell: bash -n catches an unterminated if" "$(edit "$S/bad.sh")" "syntax error"
 put "$S/good.sh" 'if [ -f x ]; then echo ok; fi'
 quiet "shell: a valid script passes" "$(edit "$S/good.sh")"
+if command -v gofmt >/dev/null 2>&1; then
+  put "$S/bad.go" 'package main
+
+func main() {'
+  blocks "go: gofmt -e catches a syntax error" "$(edit "$S/bad.go")" "bad.go:"
+  put "$S/good.go" 'package main
+
+func main() {}'
+  quiet "go: a file that parses passes" "$(edit "$S/good.go")"
+else
+  ok "code check: (gofmt absent) Go cases skipped"
+fi
+if command -v ruby >/dev/null 2>&1; then
+  put "$S/bad.rb" 'def broken('
+  blocks "ruby: ruby -c catches a syntax error" "$(edit "$S/bad.rb")" "bad.rb"
+  put "$S/good.rb" 'def fine; 1; end'
+  quiet "ruby: a file that parses passes" "$(edit "$S/good.rb")"
+else
+  ok "code check: (ruby absent) Ruby cases skipped"
+fi
+# Codex and Devin send a patch envelope with no file_path: its files get checked too
+out=$(printf '{"session_id":"sx-session","hook_event_name":"PostToolUse","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\\n*** Update File: bad.sh\\n@@\\n+x\\n*** End Patch"}}' | (cd "$S" && SENIOR_MODE_TYPECHECK=off bash "$SX_FMT" 2>/dev/null))
+blocks "chain: the files of a patch envelope reach the check" "$out" "syntax error"
 put "$S/notes.md" 'import { nothing } from "./nowhere"'
 quiet "modes: a file that is not source is ignored" "$(edit "$S/notes.md")"
 quiet "modes: SENIOR_MODE_SYNTAX=off turns the check off" "$(edit "$S/bad.sh" SENIOR_MODE_SYNTAX=off)"
