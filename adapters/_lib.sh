@@ -124,6 +124,7 @@ PreToolUse        $sm     session-tree-guard.sh
 PreToolUse        $sm     pre-commit-audit.sh
 PreToolUse        $sm     pre-push-checklist.sh
 PreToolUse        $sm     exit-code-mask-guard.sh
+PreToolUse        $sm     package-install-guard.sh
 PostToolUse       $em post-edit-format.sh
 Stop              -        senior-check-after.sh
 EOF

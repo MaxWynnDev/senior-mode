@@ -823,5 +823,14 @@ if [ -f "$INSTALLER" ]; then
   fi
 fi
 
+# --- the code checks, the gates around the checker, the probe -----------------
+# These live in tests/ so no file here grows past what one person can read.
+# They are sourced, so they share ok, fail, payload, classify and the
+# scratch dir with everything above.
+for t in "$HERE"/tests/[0-9]*.sh; do
+  # shellcheck disable=SC1090
+  [ -f "$t" ] && . "$t"
+done
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CASES [ok]"; exit 0; else echo "$FAILS CASE(S) FAILED"; exit 1; fi

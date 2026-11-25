@@ -358,7 +358,7 @@ reg_main() {
   # id can't steer the rm anywhere else.
   if [ "$mode" = "unregister" ] && [ -n "$raw_sid" ] && [ "$raw_sid" = "$REG_SID" ]; then
     local st
-    for st in senior-stop senior-undone senior-worked senior-tools push-done; do
+    for st in senior-stop senior-undone senior-worked senior-tools senior-edited senior-typeslow senior-pkg push-done; do
       rm -f "${TMPDIR:-/tmp}/claude-$st-$raw_sid" 2>/dev/null || true
     done
   fi

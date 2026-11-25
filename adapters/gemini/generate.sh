@@ -30,7 +30,7 @@ cat <<EOF | sm_put "$SM_TARGET/.gemini/settings.json"
       { "hooks": [ { "name": "senior-mode-before", "type": "command", "command": "$S BeforeAgent \\"$H/session-registry.sh:touch\\" \\"$H/senior-check-before.sh\\" \\"$H/ultracode-advisor.sh\\"", "timeout": 10000 } ] }
     ],
     "BeforeTool": [
-      { "matcher": "run_shell_command", "hooks": [ { "name": "senior-mode-guards", "type": "command", "command": "$S BeforeTool \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\"", "timeout": 20000 } ] }
+      { "matcher": "run_shell_command", "hooks": [ { "name": "senior-mode-guards", "type": "command", "command": "$S BeforeTool \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\" \\"$H/package-install-guard.sh\\"", "timeout": 30000 } ] }
     ],
     "AfterTool": [
       { "matcher": "write_file|replace", "hooks": [ { "name": "senior-mode-format", "type": "command", "command": "$S AfterTool \\"$H/post-edit-format.sh\\"", "timeout": 30000 } ] }

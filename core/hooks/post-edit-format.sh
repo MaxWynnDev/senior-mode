@@ -29,9 +29,17 @@
 #      standard).
 #   3. Otherwise: silent no-op.
 #
-# Guarantees: never blocks the turn, never touches any file except the
-# one just written, always exits 0. Fail-open everywhere: a broken
+# Guarantees: the formatter never touches any file except the one just
+# written, and this script always exits 0. Fail-open everywhere: a broken
 # formatter must never break the edit that already succeeded.
+#
+# After formatting it hands the same files to post-edit-check.sh, which
+# reads the code (imports that name nothing, wrong argument counts, the
+# type checker on that one file). The check runs here, after the
+# formatter and in the same process, for two reasons: two hooks on one
+# event would race over the file, and an install already wired for this
+# script gets the check on upgrade with no new entry. Whatever the check
+# prints is this hook's output. SENIOR_MODE_SYNTAX=off skips it.
 
 set -u
 
@@ -126,8 +134,14 @@ format_one() {
   esac
 }
 
+HERE=$(cd "$(dirname "$0")" && pwd)
+check() { # <file>...  the code check; its stdout is this hook's stdout
+  [ -f "$HERE/post-edit-check.sh" ] || return 0
+  SM_SESSION="${SESSION_ID:-unknown}" bash "$HERE/post-edit-check.sh" "$@" || true
+}
+
 if [ -n "$FILE" ]; then
-  [ -f "$FILE" ] && format_one "$FILE"
+  if [ -f "$FILE" ]; then format_one "$FILE"; check "$FILE"; fi
   exit 0
 fi
 
@@ -137,7 +151,10 @@ fi
 # always relative and hook commands run from the session cwd, so they
 # resolve as-is. Anything that does not exist after the patch is skipped.
 case "$TOOL" in apply_patch|ApplyPatch) ;; *) exit 0 ;; esac
-printf '%s' "$FLAT" | awk '
+PATCHED=()
+while IFS= read -r f; do
+  if [ -n "$f" ] && [ -f "$f" ]; then format_one "$f"; PATCHED+=("$f"); fi
+done < <(printf '%s' "$FLAT" | awk '
   {
     s = $0; pat = "\"command\"[[:space:]]*:[[:space:]]*\"";
     if (!match(s, pat)) exit;
@@ -159,7 +176,6 @@ printf '%s' "$FLAT" | awk '
       if (l ~ /^\*\*\* (Add|Update) File: /) { sub(/^\*\*\* (Add|Update) File: /, "", l); print l }
       else if (l ~ /^\*\*\* Move to: /)      { sub(/^\*\*\* Move to: /, "", l); print l }
     }
-  }' | while IFS= read -r f; do
-  [ -n "$f" ] && [ -f "$f" ] && format_one "$f"
-done
+  }')
+[ "${#PATCHED[@]}" -gt 0 ] && check "${PATCHED[@]}"
 exit 0

@@ -22,6 +22,8 @@ SM_TARGET="$(cd "$1" && pwd)"
       "Bash(git worktree list:*)", "Bash(git stash list:*)", "Bash(git remote -v)",
       "Bash(bash .senior-mode/hooks/test-checklist.sh)",
       "Bash(bash .senior-mode/hooks/session-registry.sh list)",
+      "Bash(bash .senior-mode/hooks/check.sh:*)",
+      "Bash(bash .senior-mode/hooks/boundary-probe.sh:*)",
       "Bash(bash .senior-mode/stacks/detect.sh:*)"
     ]
   },

@@ -34,7 +34,7 @@ cat <<EOF | sm_put "$SM_TARGET/.cursor/hooks.json"
       { "command": "$S prompt \\"$H/session-registry.sh:touch\\" \\"$H/ultracode-advisor.sh\\"", "timeout": 10 }
     ],
     "beforeShellExecution": [
-      { "command": "$S shell \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\"", "timeout": 20 }
+      { "command": "$S shell \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\" \\"$H/package-install-guard.sh\\"", "timeout": 30 }
     ],
     "afterFileEdit": [
       { "command": "$S edit \\"$H/post-edit-format.sh\\"", "timeout": 30 }

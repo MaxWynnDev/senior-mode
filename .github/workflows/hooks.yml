@@ -1,6 +1,8 @@
 # Runs the hook test harness (scratch git repos: hooks, shims, detector, installer) on every
 # push and pull request, on all three platforms the kit claims to support.
 # The harness needs only bash, git, and mktemp; no network, no secrets.
+# The code-check cases also use node and python where the runner has them
+# (hosted runners do), and stand in for curl with a test double.
 #
 # Exit code 0 means every case printed [ok]; the harness exits 1 otherwise,
 # which fails the job.
@@ -50,6 +52,16 @@ jobs:
       - name: Install bun (OpenCode plugin cases)
         if: matrix.os == 'ubuntu-latest'
         uses: oven-sh/setup-bun@v2
+
+      # The type tier runs a repo's own TypeScript compiler, so those cases
+      # need one in a fixture. Ubuntu only, for the same reason as bun: the
+      # helper is the same file on every platform. Elsewhere the compiler
+      # cases skip and the dependency-free checks still run.
+      - name: Install typescript (compiler cases)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/sm-ts" typescript@5
+          echo "SM_TEST_TYPESCRIPT=$RUNNER_TEMP/sm-ts/node_modules/typescript" >> "$GITHUB_ENV"
 
       # The harness commits inside throwaway repos; hosted runners have no
       # git identity configured.

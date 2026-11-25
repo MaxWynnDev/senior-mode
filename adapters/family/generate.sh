@@ -67,7 +67,7 @@ case "$AGENT" in
     { "hooks": [ { "type": "command", "command": "bash \\"$DH/session-registry.sh\\" touch", "timeout": 15 }, { "type": "command", "command": "bash \\"$DH/senior-check-before.sh\\"", "timeout": 10 }, { "type": "command", "command": "bash \\"$DH/ultracode-advisor.sh\\"", "timeout": 10 } ] }
   ],
   "PreToolUse": [
-    { "matcher": "exec", "hooks": [ { "type": "command", "command": "bash \\"$DR/.senior-mode/adapters/devin-shim.sh\\" guard \\"$DH/session-tree-guard.sh\\" \\"$DH/pre-commit-audit.sh\\" \\"$DH/pre-push-checklist.sh\\" \\"$DH/exit-code-mask-guard.sh\\"", "timeout": 20 } ] }
+    { "matcher": "exec", "hooks": [ { "type": "command", "command": "bash \\"$DR/.senior-mode/adapters/devin-shim.sh\\" guard \\"$DH/session-tree-guard.sh\\" \\"$DH/pre-commit-audit.sh\\" \\"$DH/pre-push-checklist.sh\\" \\"$DH/exit-code-mask-guard.sh\\" \\"$DH/package-install-guard.sh\\"", "timeout": 30 } ] }
   ],
   "PostToolUse": [
     { "matcher": "write|edit|apply_patch", "hooks": [ { "type": "command", "command": "bash \\"$DH/post-edit-format.sh\\"", "timeout": 30 } ] }
@@ -115,7 +115,7 @@ EOF
     }
     aug_wrapper senior-session-start.sh session-start '"$ROOT/.senior-mode/hooks/session-registry.sh:register"' '"$ROOT/.senior-mode/hooks/senior-check-before.sh"'
     aug_wrapper senior-session-end.sh   session-end   '"$ROOT/.senior-mode/hooks/session-registry.sh:unregister"'
-    aug_wrapper senior-guards.sh        guard         '"$ROOT/.senior-mode/hooks/session-tree-guard.sh"' '"$ROOT/.senior-mode/hooks/pre-commit-audit.sh"' '"$ROOT/.senior-mode/hooks/pre-push-checklist.sh"' '"$ROOT/.senior-mode/hooks/exit-code-mask-guard.sh"'
+    aug_wrapper senior-guards.sh        guard         '"$ROOT/.senior-mode/hooks/session-tree-guard.sh"' '"$ROOT/.senior-mode/hooks/pre-commit-audit.sh"' '"$ROOT/.senior-mode/hooks/pre-push-checklist.sh"' '"$ROOT/.senior-mode/hooks/exit-code-mask-guard.sh"' '"$ROOT/.senior-mode/hooks/package-install-guard.sh"'
     aug_wrapper senior-format.sh        format        '"$ROOT/.senior-mode/hooks/post-edit-format.sh"'
     aug_wrapper senior-stop.sh          stop          '"$ROOT/.senior-mode/hooks/senior-check-after.sh"'
     cat <<'EOF' | sm_put "$SM_TARGET/.augment/settings.json"
@@ -129,7 +129,7 @@ EOF
       { "hooks": [ { "type": "command", "command": ".augment/hooks/senior-session-end.sh", "timeout": 3000 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "launch-process", "hooks": [ { "type": "command", "command": ".augment/hooks/senior-guards.sh", "timeout": 20000 } ] }
+      { "matcher": "launch-process", "hooks": [ { "type": "command", "command": ".augment/hooks/senior-guards.sh", "timeout": 30000 } ] }
     ],
     "PostToolUse": [
       { "matcher": "save-file|str-replace-editor", "hooks": [ { "type": "command", "command": ".augment/hooks/senior-format.sh", "timeout": 30000 } ] }

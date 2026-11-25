@@ -42,7 +42,7 @@ cat <<EOF | sm_put "$SM_TARGET/.github/hooks/senior-mode.json"
       { "hooks": [ { "type": "command", "command": "bash \\"$H/session-registry.sh\\" touch", "timeoutSec": 15 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash \\".senior-mode/adapters/copilot-shim.sh\\" guard \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\"", "timeoutSec": 20 } ] }
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash \\".senior-mode/adapters/copilot-shim.sh\\" guard \\"$H/session-tree-guard.sh\\" \\"$H/pre-commit-audit.sh\\" \\"$H/pre-push-checklist.sh\\" \\"$H/exit-code-mask-guard.sh\\" \\"$H/package-install-guard.sh\\"", "timeoutSec": 30 } ] }
     ],
     "PostToolUse": [
       { "matcher": "Write|Edit", "hooks": [ { "type": "command", "command": "bash \\"$H/post-edit-format.sh\\"", "timeoutSec": 30 } ] }

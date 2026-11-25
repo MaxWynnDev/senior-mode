@@ -33,7 +33,8 @@ cat <<'EOF' | sm_put "$SM_TARGET/.opencode/plugins/senior-mode.ts"
 // scripts in .senior-mode/hooks against OpenCode's tool calls and turns.
 //
 //   tool.execute.before (bash)  -> session-tree-guard, pre-commit-audit,
-//                                  pre-push-checklist, exit-code-mask-guard;
+//                                  pre-push-checklist, exit-code-mask-guard,
+//                                  package-install-guard;
 //                                  a "deny" decision throws, which OpenCode
 //                                  reports to the model as a failed tool call.
 //   tool.execute.after (edit)   -> post-edit-format
@@ -49,6 +50,7 @@ const GUARDS = [
   "pre-commit-audit.sh",
   "pre-push-checklist.sh",
   "exit-code-mask-guard.sh",
+  "package-install-guard.sh",
 ];
 
 export const SeniorMode: Plugin = async ({ $, directory }) => {

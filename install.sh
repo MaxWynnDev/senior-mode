@@ -144,7 +144,12 @@ for p in "$KIT"/stacks/*/; do   # every profile's signals + card, so the picker 
   [ -f "$p/detect.txt" ] && sm_copy "$p/detect.txt" "$SM_TARGET/.senior-mode/stacks/$n/detect.txt"
   [ -f "$p/profile.json" ] && sm_copy "$p/profile.json" "$SM_TARGET/.senior-mode/stacks/$n/profile.json"
 done
-if [ -n "$SM_STACK" ]; then copy_tree "$KIT/stacks/$SM_STACK" "$SM_TARGET/.senior-mode/stacks/$SM_STACK"; fi
+if [ -n "$SM_STACK" ]; then
+  copy_tree "$KIT/stacks/$SM_STACK" "$SM_TARGET/.senior-mode/stacks/$SM_STACK"
+  # Which profile is the installed one. The hooks read its commands
+  # (typecheck, check_file, test) through hooks/lib/profile.sh.
+  printf '%s\n' "$SM_STACK" | sm_put "$SM_TARGET/.senior-mode/stacks/ACTIVE"
+fi
 sm_copy "$KIT/KICKOFF-PROMPT.md" "$SM_TARGET/.senior-mode/KICKOFF-PROMPT.md"
 sm_copy "$KIT/SETUP.md"          "$SM_TARGET/.senior-mode/SETUP.md"
 sm_copy "$KIT/STACK.md"          "$SM_TARGET/.senior-mode/STACK.md"

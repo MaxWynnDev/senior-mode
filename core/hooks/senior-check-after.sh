@@ -41,10 +41,17 @@
 #   claude-senior-worked-<id>   a shell or edit tool ran this turn
 #   claude-senior-tools-<id>    tool hooks have fired in this session
 #   claude-push-done-<id>       this turn pushed
+#   claude-senior-edited-<id>   source files edited this turn, under two
+#                               header lines naming the typecheck receipt
+#                               and check.sh (post-edit-check.sh writes it)
 # pre-push-checklist.sh and post-edit-format.sh write the worked and tools
 # markers. senior-check-before.sh clears the per-turn files when a prompt
 # arrives, and every allow below clears them too, which is what agents
 # with no prompt event rely on.
+#
+# 3. The typecheck receipt. When the turn edited source and check.sh has
+#    not run since the last edit, the self-audit gets one more line that
+#    says to run it. Same block, no extra round.
 #
 # Universal: edit the two reason strings to match your project's review
 # dimensions. Keep double quotes out of them; the Cursor and Gemini shims
@@ -63,6 +70,7 @@ UNDONEF="$T/claude-senior-undone-$ID"
 WORKF="$T/claude-senior-worked-$ID"
 TOOLSF="$T/claude-senior-tools-$ID"
 PUSHF="$T/claude-push-done-$ID"
+EDITF="$T/claude-senior-edited-$ID"
 
 ACTIVE=no
 re_active='"stop_hook_active"[[:space:]]*:[[:space:]]*true'
@@ -72,11 +80,42 @@ re_active='"stop_hook_active"[[:space:]]*:[[:space:]]*true'
 # with it. That includes the push flag: a push made after the self-audit
 # block used to leave it behind and switch off the next turn's check.
 allow() {
-  rm -f "$STOPF" "$UNDONEF" "$WORKF" "$PUSHF" 2>/dev/null || true
+  rm -f "$STOPF" "$UNDONEF" "$WORKF" "$PUSHF" "$EDITF" 2>/dev/null || true
   exit 0
 }
 
 AFTER='[SENIOR CHECK | AFTER] Before this answer goes out:\n(1) Self-audit the deliverable against ENGINEERING-PRINCIPLES.md: security, data integrity, money and billing paths, auth, PII, the lines-of-code budget.\n(2) Did you ship the 100% version? Anything in scope you can still do, do it now and do not list it. A decision that belongs to the user goes to them as one multiple-choice question (your question tool, recommended option first). A step only a human can take goes to them as exact instructions.\n(3) For every green check you are about to report: what would RED have looked like, and could this run have produced it?\n(4) Would a senior engineer push back on anything here? If yes, fix it now.\n(5) Close non-trivial work with an [AFTER-AUDIT] block. Covered: what this response did and how you verified it. Without senior mode: what this check or the BEFORE check caught that a first pass would have shipped without. Name the catch. Write nothing this turn when the checks changed nothing, and never invent one.\n\nIf the work clears the bar, answer normally. This fires once per turn.'
+
+# The typecheck receipt. post-edit-check.sh lists the source files edited
+# this turn, and only in a repo that has a typecheck command. check.sh
+# writes a receipt when the full check runs. A turn that edited source and
+# has no receipt newer than its last edit gets one more line on the
+# self-audit. Builtins only: this hook has a 5 second budget.
+if [ -s "$EDITF" ]; then
+  RCPT=""; CHK=""; EDITED=0
+  while IFS= read -r l || [ -n "$l" ]; do
+    case "$l" in
+      receipt=*) RCPT=${l#receipt=} ;;
+      check=*)   CHK=${l#check=} ;;
+      ?*)        EDITED=$((EDITED + 1)) ;;
+    esac
+  done < "$EDITF"
+  # The path goes back inside a JSON string, in single quotes. One with a
+  # quote or a backslash in it is left out instead of escaped.
+  case "$CHK" in *[\'\"\\]*) CHK="" ;; esac
+  if [ -n "$RCPT" ] && [ -n "$CHK" ] && [ "$EDITED" -gt 0 ]; then
+    if [ ! -f "$RCPT" ] || [ "$EDITF" -nt "$RCPT" ]; then
+      AFTER="${AFTER}\\n\\n(6) You edited source in this turn and the full typecheck has not run since the last edit. The per-edit check reads one file, and a change can break a caller in a file you never opened. Run it now: bash '${CHK}' . If it cannot run here, say in the answer that the change is not typechecked."
+    else
+      RC=""
+      IFS= read -r RC < "$RCPT" 2>/dev/null || true
+      case "$RC" in
+        rc=0) ;;
+        rc=[0-9]*) AFTER="${AFTER}\\n\\n(6) The last full typecheck failed with exit code ${RC#rc=}. Fix it, or report it as failed with the error. Do not call this done over a red check." ;;
+      esac
+    fi
+  fi
+fi
 
 # ---- 1. undone work ----------------------------------------------------------
 MSG=$(printf '%s' "$FLAT" | sed -nE 's/.*"last_assistant_message"[[:space:]]*:[[:space:]]*"((\\.|[^"\\])*)".*/\1/p')
